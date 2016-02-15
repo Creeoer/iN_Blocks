@@ -1,0 +1,9 @@
+name: iN_Blocks
+version: 0.9.7
+main: creeoer.plugins.in_blocks.main.iN_Blocks
+author: Creeoer
+
+
+commands:
+   in:
+     description: iN_Block commands
