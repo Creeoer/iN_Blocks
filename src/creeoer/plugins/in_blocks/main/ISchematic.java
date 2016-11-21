@@ -9,11 +9,10 @@ import com.sk89q.worldedit.bukkit.BukkitUtil;
 import com.sk89q.worldedit.bukkit.BukkitWorld;
 import com.sk89q.worldedit.schematic.SchematicFormat;
 import com.sk89q.worldedit.world.DataException;
-import com.sk89q.worldedit.world.World;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -46,32 +45,13 @@ public class ISchematic {
         SchematicFormat format = SchematicFormat.getFormat(sFile);
         cc = format.load(sFile);
         config = YamlConfiguration.loadConfiguration(new File(main.getDataFolder() + File.separator + "config.yml"));
-
         sizeX = cc.getWidth();
         sizeY = cc.getHeight();
         sizeZ = cc.getLength();
-
-       baseBlocks =  new BaseBlock[sizeX] [sizeY] [sizeZ];
-        for (int x = 0; x < sizeX; x ++){
-        for (int y = 0; y < sizeY; y ++){
-              for (int z = 0; z < sizeZ; z ++){
-
-               baseBlocks [x][y][z] = cc.getBlock(new Vector(x,y,z));
-             }
-         }
-      }
-
-
+        baseBlocks =  new BaseBlock[sizeX] [sizeY] [sizeZ];
     }
 
-    public void paste(Location l, final Player p) throws IOException, DataException{
-
-        /* Get all the blocks in the schematics region
-        Sort them based on y
-
-
-         */
-
+    public void paste(final Location l, final Player p) throws IOException, DataException{
         if(config.getBoolean("Options.block-by-block")){
 
             final List<Block> blocks=new ArrayList<>();
@@ -79,7 +59,7 @@ public class ISchematic {
             for(int x=0;x<cc.getWidth();x++){
                 for(int y=0;y<cc.getHeight();y++){
                     for(int z=0;z<cc.getLength();z++){
-                        Block b=l.clone().add(x,y,z).getBlock();
+                        Block b= l.clone().add(x,y,z).getBlock();
                         blocks.add(b);
                         allBlocks.put(b,baseBlocks[x][y][z]);
                     }
@@ -106,6 +86,10 @@ public class ISchematic {
                         if(place < size) {
                             Block b=blocks.get(place);
                             BaseBlock base=allBlocks.get(b);
+
+                            if(Material.getMaterial(base.getType()) != Material.AIR)
+                                p.playSound(l, Sound.BLOCK_ANVIL_PLACE, 1, 0);
+
                             b.setTypeId(base.getType());
                             b.setData((byte)base.getData());
                             place+=1;
@@ -134,8 +118,8 @@ public class ISchematic {
         }
     }
 
-    public void preview(Player p) throws IOException, DataException, MaxChangedBlocksException, NoSuchFieldException, IllegalAccessException {
-
+    public void preview(Player p, Location l) throws IOException, DataException, MaxChangedBlocksException, NoSuchFieldException, IllegalAccessException {
+        pLoc = l;
         String sdir = YamlConfiguration.loadConfiguration(new File(main.getDataFolder() + File.separator + "schematics.yml")).getString("Schematics." + sName);
         String pdir = PUtils.getCardinalDirection(p).toUpperCase();
         if (pdir.equals("N") && sdir.equalsIgnoreCase("south")) {
@@ -163,21 +147,26 @@ public class ISchematic {
         } else if (pdir.equals("west") && sdir.equalsIgnoreCase("south")) {
             cc.rotate2D(-90);
         }
+        for (int x = 0; x < sizeX; x ++){
+            for (int y = 0; y < sizeY; y ++){
+                for (int z = 0; z < sizeZ; z ++){
+                    baseBlocks [x][y][z] = cc.getBlock(new Vector(x,y,z));
+                }
+            }
+        }
 
-        pLoc = p.getLocation();
         for (int x = 0; x < sizeX; x ++){
             for (int y = 0; y < sizeY; y++) {
                 for (int z = 0; z < sizeZ; z ++){
                     Material mat = Material.getMaterial(baseBlocks[x][y][z].getType());
-                    Location temp = pLoc.clone().add(x, y ,z);
+                    Location temp = l.clone().add(x, y ,z);
                     p.sendBlockChange(temp, mat, (byte) baseBlocks[x][y][z].getData());
 
                 }
             }
         }
-
-
     }
+
 
     public void retainMetaData(CuboidClipboard clipboard, Vector spawnLoc, org.bukkit.World world) {
         /**
@@ -199,12 +188,12 @@ public class ISchematic {
     }
 //IF A PLAYER PUT A MATERIAL THERE DURING A PREVIEW , IT WOULDNT BE SYNCED UP
 
-    public void unloadPreview(Player p ) {
+    public void unloadPreview(Player p, Location l) {
 
         for (int x = 0; x < sizeX; x++) {
             for (int y = 0; y < sizeY; y++) {
                 for (int z = 0; z < sizeZ; z++) {
-                    Location temp = pLoc.clone().add(x, y, z);
+                    Location temp = l.clone().add(x, y, z);
                     Block b = temp.getBlock();
                     p.sendBlockChange(temp, b.getType(), (byte) 0);
                 }
@@ -227,6 +216,25 @@ public class ISchematic {
 
     public String getName(){
         return sName;
+    }
+
+    public Block findBlock(Block b){
+        //REGION SEARCHUP
+
+
+        for (int x = 0; x < sizeX; x++) {
+            for (int y = 0; y < sizeY; y++){
+                for(int z=0;z<sizeZ;z++){
+                    Block block = pLoc.clone().add(x, y, z).getBlock();
+
+                    if(block.getType() == b.getType()){
+                        return block;
+                    }
+
+                }
+                  }
+                }
+        return null;
     }
 
 

@@ -1,81 +1,133 @@
 package creeoer.plugins.in_blocks.main;
 
+import com.massivecraft.factions.Factions;
 import com.massivecraft.factions.entity.BoardColl;
 import com.massivecraft.factions.entity.Faction;
 import com.massivecraft.factions.entity.FactionColl;
 import com.massivecraft.factions.entity.MPlayer;
 import com.massivecraft.massivecore.ps.PS;
+import com.palmergames.bukkit.towny.Towny;
 import com.palmergames.bukkit.towny.exceptions.NotRegisteredException;
 import com.palmergames.bukkit.towny.object.Resident;
 import com.palmergames.bukkit.towny.object.TownyUniverse;
 import com.sk89q.worldedit.CuboidClipboard;
 import com.sk89q.worldedit.world.DataException;
 import com.sk89q.worldguard.LocalPlayer;
+import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import com.wasteofplastic.districts.DistrictRegion;
 import com.wasteofplastic.districts.Districts;
 import com.wasteofplastic.districts.GridManager;
 import me.ryanhamshire.GriefPrevention.Claim;
 import me.ryanhamshire.GriefPrevention.GriefPrevention;
 import net.sacredlabyrinth.Phaed.PreciousStones.PreciousStones;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.plugin.Plugin;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.Future;
 
 
 public class RegionManager {
 
     iN_Blocks main = null;
+    List<iChecker> checkers;
 
-    //TODO TO be used when someone nags that my plugin is causing lag issues
-    private boolean wgPresent = false;
-    private boolean townPresent = false;
-    private boolean facPresent = false;
-    private boolean districtsPresent = false;
 
     FileConfiguration config;
 
     protected RegionManager(iN_Blocks instance){
         main = instance;
         config = main.getConfig();
+        checkers = new ArrayList<>();
+
+       for(Plugin plugin: main.dependencies) {
+
+           if(plugin instanceof WorldGuardPlugin) {
+               checkers.add(new iChecker(){
+                   @Override
+                   public boolean isValidPlacement(Location l, Player p){
+                     return isPlayerRegion(l, p, (WorldGuardPlugin) plugin);
+                   }
+               });
+               continue;
+           }
+
+           if(plugin instanceof Districts) {
+               checkers.add(new iChecker(){
+                   @Override
+                   public boolean isValidPlacement(Location l, Player p){
+                       return isPlayerDistrict(l, p);
+                   }
+               });
+               continue;
+           }
+
+           if(plugin instanceof PreciousStones) {
+               checkers.add(new iChecker(){
+                   @Override
+                   public boolean isValidPlacement(Location l, Player p){
+                       return isPlayerStone(l, p);
+                   }
+               });
+               continue;
+           }
+
+           if(plugin instanceof GriefPrevention) {
+               checkers.add(new iChecker(){
+                   @Override
+                   public boolean isValidPlacement(Location l, Player p){
+                       return isPlayerArea(l, p);
+                   }
+               });
+               continue;
+           }
+
+           if(plugin instanceof Towny) {
+               checkers.add(new iChecker(){
+                   @Override
+                   public boolean isValidPlacement(Location l,Player p){
+                       try {isPlayerTown(l, p);} catch (NotRegisteredException ignored) {}
+                       return false;
+                   }
+               });
+               continue;
+           }
+           if(plugin instanceof Factions) {
+               checkers.add(new iChecker(){
+                   @Override
+                   public boolean isValidPlacement(Location l, Player p){
+                       return isPlayerFac(l, p);
+                   }
+               });
+           }
+       }
 
 
-        //Protection services initialization
-        if(main.getDistricts() != null)
-            districtsPresent = true;
-        if(main.getWorldGuard() != null)
-            wgPresent = true;
-        if(main.getTowny() != null)
-            townPresent = true;
-        if(main.getFactions() != null)
-            facPresent = true;
+
+
     }
 
 
     public  boolean canPlayerPlace(final Player p, ISchematic sch) throws DataException, IOException, NotRegisteredException {
+
+        if(p.isOp()) return true;
+
+        if(main.dependencies.isEmpty()) return true;
+
+
         List<Location> locs = generateLocs(p.getLocation(), sch.getData());
 
         /* TODO Do not use redundant checks if plugin is not present
         Add precious stones support
           */
-
-
-
-
         for(Location loc: locs){
-            if (!isPlayerTown(loc, p) ||
-             !isPlayerFac(loc, p)  ||
-             !isPlayerArea(loc, p)  ||
-             !isPlayerStone(loc, p) ||
-             !isPlayerRegion(loc, p)  ||
-             !isPlayerDistrict(loc, p) ) return false;
+           for(iChecker check: checkers) {
+               check.isValidPlacement(loc, p);
+           }
         }
 
 
@@ -85,24 +137,18 @@ public class RegionManager {
 
 
 
-    public boolean isPlayerRegion(Location loc, Player player) {
 
-        if (main.getWorldGuard() == null)
-            return true;
-
-        if(player.isOp())
-            return true;
-
-
-        LocalPlayer p = main.getWorldGuard().wrapPlayer(player);
-        com.sk89q.worldguard.protection.managers.RegionManager regionManager = main.getWorldGuard().getRegionManager(player.getWorld());
+    public boolean isPlayerRegion(Location loc, Player player, WorldGuardPlugin instance) {
+        LocalPlayer p = instance.wrapPlayer(player);
+        com.sk89q.worldguard.protection.managers.RegionManager regionManager = instance.getRegionManager(player.getWorld());
         if (regionManager == null)
             return true;
 
         if (regionManager.getApplicableRegions(loc) == null)
             return true;
 
-        if (regionManager.getApplicableRegions(loc).isOwnerOfAll(p) || regionManager.getApplicableRegions(loc).isMemberOfAll(p))
+        if (regionManager.getApplicableRegions(loc).isOwnerOfAll(p) || regionManager.getApplicableRegions(loc).isMemberOfAll(p) ||
+                regionManager.getApplicableRegions(loc).canBuild(p))
             return true;
 
 
@@ -111,13 +157,6 @@ public class RegionManager {
 
 
     public boolean isPlayerFac(Location loc  , Player player){
-        if(main.getFactions() == null)
-            return true;
-
-        if(player.isOp())
-            return true;
-
-
         Faction wilderness = FactionColl.get().getNone();
         Faction safeZone = FactionColl.get().getSafezone();
         Faction warZone = FactionColl.get().getWarzone();
@@ -144,12 +183,6 @@ public class RegionManager {
     }
 
     public boolean isPlayerArea(Location loc, Player player){
-        if(main.getGriefPrevention() == null)
-            return true;
-
-        if(player.isOp())
-            return true;
-
         Claim claim = GriefPrevention.instance.dataStore.getClaimAt(loc, true, null);
 
         if(claim == null)
@@ -161,20 +194,13 @@ public class RegionManager {
         return false;
     }
 
-    public boolean isPlayerTown(Location loc, Player player) throws NotRegisteredException{
-        if(main.getTowny() == null)
-            return true;
-
-        if(player.isOp())
-            return true;
-
-
+    public boolean isPlayerTown(Location loc, Player player) throws NotRegisteredException {
         Resident r = TownyUniverse.getDataSource().getResident(player.getName());
 
-        if(!r.hasTown())
-            return false;
-
         if(TownyUniverse.getTownName(loc) == null)
+            return true;
+
+        if(TownyUniverse.getTownName(loc) != null & !r.hasTown())
             return false;
 
         if(!r.getTown().getName().equals(TownyUniverse.getTownName(loc)))
@@ -185,24 +211,12 @@ public class RegionManager {
     }
 
     public boolean isPlayerStone(Location loc, Player p){
-       if(main.getStones() == null) return true;
-
         if(PreciousStones.API().canPlace(p, loc))  return true;
-
         return false;
     }
 
     public boolean isPlayerDistrict(Location loc, Player p){
-
-        if(main.getDistricts() == null)
-            return true;
-
-
         GridManager manager = Districts.getPlugin().getGrid(p.getWorld().getName());
-
-        if(p.isOp())
-            return true;
-
         if(manager.districtAtLocation(loc)) {
             DistrictRegion region = manager.getDistrictRegionAt(loc);
             if (region.getOwner().equals(p.getUniqueId()))
@@ -211,9 +225,7 @@ public class RegionManager {
             for (UUID trusted : region.getOwnerTrustedUUID()) {
                 if (trusted.equals(p.getUniqueId()))
                     return true;
-
             }
-
             return false;
         }
         return true;

@@ -13,27 +13,28 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.SignChangeEvent;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.ArrayList;
 import java.util.List;
 
+
 public class SignListener implements Listener {
     iN_Blocks main;
-SchematicManager manager;
+    SchematicManager manager;
 
     public SignListener(iN_Blocks main){
         this.main = main;
+
+
        manager =  this.main.getSchematicManager();
     }
 @EventHandler
     public void onSignDefine(SignChangeEvent e){
 
-        if(e.getLine(0).equalsIgnoreCase("[in_blocks]")){
+        if(e.getLine(0).equalsIgnoreCase(ChatColor.stripColor(main.getConfig().getString("Options.sign-name")))){
             Player p = e.getPlayer();
 
             if(!p.hasPermission("in.sign.define")){
@@ -62,14 +63,15 @@ SchematicManager manager;
 
             //We're assuming if they got this far the sign is in fact perfectly valid
 
-            e.setLine(0, ChatColor.AQUA + "[" + ChatColor.YELLOW + "iN_Blocks" + ChatColor.AQUA + "]");
+
+
+            e.setLine(0, main.getConfig().getString("Options.sign-name"));
 
         }
     }
 
 @EventHandler
-    public void onSignClick(PlayerInteractEvent e){
-
+    public void onSignClick(PlayerInteractEvent e) {
         if(e.getAction() == Action.RIGHT_CLICK_BLOCK){
 
             BlockState state = e.getClickedBlock().getState();
@@ -77,7 +79,7 @@ SchematicManager manager;
             if(state instanceof Sign){
                 Sign sign = (Sign) state;
                 Player p = e.getPlayer();
-                if(sign.getLine(0).equals(ChatColor.AQUA + "[" + ChatColor.YELLOW + "iN_Blocks" + ChatColor.AQUA + "]")){
+                if(sign.getLine(0).equals(main.getConfig().getString("Options.sign-name"))){
 
                     if(!p.hasPermission("in.sign.use")) {
                         p.sendMessage(ChatColor.RED + "You don't have permission to use this!");
@@ -97,12 +99,24 @@ SchematicManager manager;
                     ItemStack stack = new ItemStack(mat);
                     ItemMeta meta = stack.getItemMeta();
 
-                    meta.setDisplayName(ChatColor.YELLOW + sign.getLine(2) + " schematic");
+
+                    if(!main.getConfig().getBoolean("Options.use-lore")){
+                        meta.setDisplayName(ChatColor.YELLOW+sign.getLine(2)+" schematic");
+                    } else{
+                        List<String> lore = new ArrayList<>();
+                        lore.add(ChatColor.YELLOW + sign.getLine(2) + " schematic");
+                        meta.setLore(lore);
+                    }
+
                     stack.setItemMeta(meta);
                     p.getInventory().addItem(stack);
                     p.updateInventory();
                     p.sendMessage(ChatColor.AQUA + "Successfully purchased schematic block!");
                 }
+
+
+
+
 
             }
 

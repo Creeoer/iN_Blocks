@@ -24,3 +24,9 @@ Options:
   #If block-by-block is enabled this designates the
   #speed per second
   blocksPerSecond: 7
+
+  #Sign name to be displayed
+  sign-name: §b[§eiN_Blocks§b]
+
+  #Use item lore instead of block name?
+  use-lore: false

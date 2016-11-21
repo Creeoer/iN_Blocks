@@ -1,12 +1,13 @@
 package creeoer.plugins.in_blocks.main;
 
-import com.sk89q.worldedit.*;
+import com.sk89q.worldedit.EmptyClipboardException;
+import com.sk89q.worldedit.LocalPlayer;
+import com.sk89q.worldedit.LocalSession;
+import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.session.ClipboardHolder;
-import com.sk89q.worldedit.world.DataException;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -15,9 +16,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 
 public class Commands implements CommandExecutor {
 
@@ -170,7 +171,14 @@ public class Commands implements CommandExecutor {
 				ItemStack build = new ItemStack(Material.getMaterial(main.getConfig().getString("Options.material")));
 				ItemMeta meta = build.getItemMeta();
 
-				meta.setDisplayName(ChatColor.YELLOW + sName + " schematic");
+                if(!main.getConfig().getBoolean("Options.use-lore")){
+                    meta.setDisplayName(ChatColor.YELLOW+ sName+" schematic");
+                } else{
+                    List<String> lore = new ArrayList<>();
+                    lore.add(ChatColor.YELLOW + sName+ " schematic");
+                    meta.setLore(lore);
+                }
+
 				build.setItemMeta(meta);
 
 				if (args.length == 4){
