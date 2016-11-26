@@ -1,6 +1,5 @@
 package creeoer.plugins.in_blocks.events;
 
-import com.sk89q.worldedit.regions.CuboidRegion;
 import creeoer.plugins.in_blocks.main.ISchematic;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
