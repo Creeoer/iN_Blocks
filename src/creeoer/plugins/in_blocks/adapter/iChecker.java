@@ -1,4 +1,4 @@
-package creeoer.plugins.in_blocks.main;
+package creeoer.plugins.in_blocks.adapter;
 
 
 import org.bukkit.Location;
