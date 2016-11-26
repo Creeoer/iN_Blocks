@@ -10,6 +10,7 @@ import creeoer.plugins.in_blocks.main.iN_Blocks;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -23,7 +24,6 @@ import org.bukkit.inventory.AnvilInventory;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
 import java.io.IOException;
@@ -44,6 +44,7 @@ public class SListener implements Listener {
     private String name;
     private Location pLoc;
     private FileConfiguration config;
+    private List<ItemStack> requirements;
     private RegionManager rgManager;
 
     public SListener(iN_Blocks instance){
@@ -58,68 +59,85 @@ public class SListener implements Listener {
 
     @EventHandler
     public void onBlockPlace(BlockPlaceEvent e) throws DataException, IOException, MaxChangedBlocksException, IllegalAccessException, NoSuchFieldException{
-        if(e.getItemInHand().hasItemMeta()) {
-            ItemStack stack = e.getItemInHand();
-            ItemMeta meta = stack.getItemMeta();
-            final Player p = e.getPlayer();
-            if (meta.hasDisplayName() || meta.hasLore()) {
-                if ( meta.hasLore() && meta.getLore().get(0).contains("schematic") || meta.hasDisplayName() &&  meta.getDisplayName().charAt(0) == ChatColor.COLOR_CHAR && meta.getDisplayName().contains("schematic")) {
-                   Location l = e.getBlock().getLocation();
+        if(e.getItemInHand().hasItemMeta()){
+            ItemStack stack=e.getItemInHand();
+            ItemMeta meta=stack.getItemMeta();
+            final Player p=e.getPlayer();
+            if(meta.hasDisplayName()||meta.hasLore()){
+                if(meta.hasLore()&&meta.getLore().get(0).contains("schematic")||meta.hasDisplayName()&&meta.getDisplayName().charAt(0)==ChatColor.COLOR_CHAR&&meta.getDisplayName().contains("schematic")){
+                    Location l=e.getBlock().getLocation();
                     e.setCancelled(true);
 
-                    if (p.isConversing()) {
-                        p.sendRawMessage(ChatColor.RED + "Can't place another schematic while in preview mode!");
+                    if(p.isConversing()){
+                        p.sendRawMessage(ChatColor.RED+"Can't place another schematic while in preview mode!");
                         return;
                     }
 
                     String[] split;
-
-
                     if(!main.getConfig().getBoolean("Options.use-lore")){
-                         split = meta.getDisplayName().split("\\s+");
-                    } else{
-                         split = meta.getLore().get(0).split("\\s+");
+                        split=meta.getDisplayName().split("\\s+");
+                    }else{
+                        split=meta.getLore().get(0).split("\\s+");
                     }
 
-                    name = ChatColor.stripColor(split[0]);
-                    sch = manager.getSchematic(name);
+                    name=ChatColor.stripColor(split[0]);
+                    sch=manager.getSchematic(name);
 
-                    if(sch == null){
-                        p.sendMessage(ChatColor.RED + "What is this! Apparently the schematic you are trying to place does not exist!");
+                    if(sch==null){
+                        p.sendMessage(ChatColor.RED+"What is this! Apparently the schematic you are trying to place does not exist!");
                         return;
                     }
 
-                    this.stack = stack;
-                    this.block = e.getBlockPlaced();
+                    this.stack=stack;
+                    this.block=e.getBlockPlaced();
 
-                    if (manager.hasPermission(ChatColor.stripColor(split[0])) && !p.hasPermission("in." + ChatColor.stripColor(split[0]))){
-                        p.sendMessage(ChatColor.RED + "You don't have permission to place this type of schematic!");
+                    if(manager.hasPermission(ChatColor.stripColor(split[0]))&&!p.hasPermission("in."+ChatColor.stripColor(split[0]))){
+                        p.sendMessage(ChatColor.RED+"You don't have permission to place this type of schematic!");
                         return;
                     }
+                    List<ItemStack> requ=new ArrayList<>();
 
-                    try {
-                        if (!rgManager.canPlayerPlace(p, sch)) {
-                            p.sendMessage(ChatColor.RED + "Due to land restrictions, you can not place your schematic here");
+                    if(config.getBoolean("Options.survival-mode")){
+                        //Check player inventory for requirements
+                        for(String item : meta.getLore()){
+                            if(!ChatColor.stripColor(item).contains("schematic")){
+                                String[] parts=(ChatColor.stripColor(item).split("\\s+"));
+                                int i=Integer.parseInt(parts[0]);
+                                ItemStack itemStack=new ItemStack(Material.getMaterial(parts[1].toUpperCase()));
+
+                                if(!p.getInventory().containsAtLeast(itemStack,i)){
+                                    p.sendMessage(ChatColor.AQUA+"Not enough "+itemStack.getType().toString());
+                                    return;
+                                }
+                                requ.add(new ItemStack(Material.getMaterial(parts[1].toUpperCase()),i));
+                            }
+                        }
+                    }
+
+
+                        try{
+                            if(!rgManager.canPlayerPlace(p,sch)){
+                                p.sendMessage(ChatColor.RED+"Due to land restrictions, you can not place your schematic here");
+                                return;
+                            }
+                        }catch(Exception ignored){
                             return;
                         }
-                    } catch (Exception ignored) {
-                        return;
+
+                        requirements=requ;
+                        p.updateInventory();
+
+                        sch.preview(p,l);
+
+                        pLoc=l;
+                        initConvo(p).begin();
+                        e.setCancelled(true);
+
                     }
 
-
-                    sch.preview(p, l);
-
-                    pLoc = l;
-                    initConvo(p).begin();
-                    e.setCancelled(true);
-
                 }
-
             }
-        }
-
     }
-
 
 
 
@@ -138,22 +156,22 @@ public class SListener implements Listener {
 
             @Override
             protected Prompt acceptValidatedInput(ConversationContext conversationContext,String s){
-                if(!s.equals("yes") && !s.equals("rotate")){
+                if(!s.equals("yes")&&!s.equals("rotate")){
                     sch.unloadPreview(p,pLoc);
-                    isDone = true;
+                    isDone=true;
                     p.sendRawMessage(ChatColor.RED+"Placement cancelled!");
                     return Prompt.END_OF_CONVERSATION;
                 }
 
-                isDone = true;
-                iNPlaceEvent e = new iNPlaceEvent(name, p, pLoc, block, sch);
+                isDone=true;
+                iNPlaceEvent e=new iNPlaceEvent(name,p,pLoc,block,sch);
                 Bukkit.getServer().getPluginManager().callEvent(e);
                 sch.unloadPreview(p,pLoc);
 
-               if(e.isCancelled()){
-                   p.sendRawMessage(ChatColor.RED + "Block placement was cancelled!!");
-                   return Prompt.END_OF_CONVERSATION;
-               }
+                if(e.isCancelled()){
+                    p.sendRawMessage(ChatColor.RED+"Block placement was cancelled!!");
+                    return Prompt.END_OF_CONVERSATION;
+                }
 
                 try{
                     sch.paste(pLoc,p);
@@ -169,8 +187,11 @@ public class SListener implements Listener {
                     p.updateInventory();
                 }else{
                     p.getInventory().removeItem(stack);
+            }
+                for(ItemStack requirement: requirements) {
+                   p.getInventory().removeItem(new ItemStack(requirement.getType(), requirement.getAmount()));
                 }
-
+                p.updateInventory();
                 return Prompt.END_OF_CONVERSATION;
 
             }
@@ -185,6 +206,7 @@ public class SListener implements Listener {
         });
         return fac.buildConversation(p);
     }
+
 
 
     @EventHandler
