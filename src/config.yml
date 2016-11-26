@@ -30,3 +30,9 @@ Options:
 
   #Use item lore instead of block name?
   use-lore: false
+
+  #Should resources be taken into account?
+  survival-mode: false
+
+  #Enable sound when placing
+  sound: false

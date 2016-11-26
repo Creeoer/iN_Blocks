@@ -1,24 +1,21 @@
 package creeoer.plugins.in_blocks.listeners;
 
+import com.sk89q.worldedit.world.DataException;
+import creeoer.plugins.in_blocks.main.ISchematic;
 import creeoer.plugins.in_blocks.main.SchematicManager;
 import creeoer.plugins.in_blocks.main.iN_Blocks;
 import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.ChatColor;
-import org.bukkit.Material;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
-
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.io.IOException;
 
 
 public class SignListener implements Listener {
@@ -71,11 +68,9 @@ public class SignListener implements Listener {
     }
 
 @EventHandler
-    public void onSignClick(PlayerInteractEvent e) {
+    public void onSignClick(PlayerInteractEvent e) throws DataException, IOException{
         if(e.getAction() == Action.RIGHT_CLICK_BLOCK){
-
             BlockState state = e.getClickedBlock().getState();
-
             if(state instanceof Sign){
                 Sign sign = (Sign) state;
                 Player p = e.getPlayer();
@@ -93,23 +88,8 @@ public class SignListener implements Listener {
                         p.sendMessage(ChatColor.RED + "You don't have enough funds to afford this!");
                         return;
                     }
-
-                    Material mat = Material.getMaterial(main.getConfig().getString("Options.material"));
-
-                    ItemStack stack = new ItemStack(mat);
-                    ItemMeta meta = stack.getItemMeta();
-
-
-                    if(!main.getConfig().getBoolean("Options.use-lore")){
-                        meta.setDisplayName(ChatColor.YELLOW+sign.getLine(2)+" schematic");
-                    } else{
-                        List<String> lore = new ArrayList<>();
-                        lore.add(ChatColor.YELLOW + sign.getLine(2) + " schematic");
-                        meta.setLore(lore);
-                    }
-
-                    stack.setItemMeta(meta);
-                    p.getInventory().addItem(stack);
+                    ISchematic schematic = new ISchematic(sign.getLine(2), main);
+                    p.getInventory().addItem(schematic.getItem(1));
                     p.updateInventory();
                     p.sendMessage(ChatColor.AQUA + "Successfully purchased schematic block!");
                 }
