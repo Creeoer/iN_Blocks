@@ -5,18 +5,15 @@ import com.sk89q.worldedit.LocalPlayer;
 import com.sk89q.worldedit.LocalSession;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.session.ClipboardHolder;
+import com.sk89q.worldedit.world.DataException;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -106,7 +103,7 @@ public class Commands implements CommandExecutor {
 
 				try {
 					manager.createSchematic(player, name, direction);
-				} catch (IOException e){
+				} catch (Exception e){
 					e.printStackTrace();
 					return false;
 				}
@@ -167,32 +164,20 @@ public class Commands implements CommandExecutor {
 					return false;
 				}
 
-
-				ItemStack build = new ItemStack(Material.getMaterial(main.getConfig().getString("Options.material")));
-				ItemMeta meta = build.getItemMeta();
-
-                if(!main.getConfig().getBoolean("Options.use-lore")){
-                    meta.setDisplayName(ChatColor.YELLOW+ sName+" schematic");
-                } else{
-                    List<String> lore = new ArrayList<>();
-                    lore.add(ChatColor.YELLOW + sName+ " schematic");
-                    meta.setLore(lore);
-                }
-
-				build.setItemMeta(meta);
+             ISchematic schematic = null;
+     try{
+       schematic=new ISchematic(sName,main);
+    } catch (IOException|DataException e) {e.printStackTrace(); return false;}
 
 				if (args.length == 4){
 					int amount = Integer.parseInt(args[3]);
-					build.setAmount(amount);
-					target.getInventory().addItem(build);
+			        target.getInventory().addItem(schematic.getItem(amount));
 					target.updateInventory();
 					return true;
 				}
 
-				target.getInventory().addItem(build);
+				target.getInventory().addItem(schematic.getItem(1));
 				target.updateInventory();
-
-
 
 			}
 		}
