@@ -1,33 +1,16 @@
 package creeoer.plugins.in_blocks.main;
 
-import com.massivecraft.factions.Factions;
-import com.massivecraft.factions.entity.BoardColl;
-import com.massivecraft.factions.entity.Faction;
-import com.massivecraft.factions.entity.FactionColl;
-import com.massivecraft.factions.entity.MPlayer;
-import com.massivecraft.massivecore.ps.PS;
-import com.palmergames.bukkit.towny.Towny;
-import com.palmergames.bukkit.towny.object.Resident;
-import com.palmergames.bukkit.towny.object.TownyUniverse;
-import com.sk89q.worldedit.regions.Region;
+import com.sk89q.worldedit.CuboidClipboard;
 import com.sk89q.worldedit.world.DataException;
-import com.sk89q.worldguard.LocalPlayer;
-import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
-import com.wasteofplastic.districts.DistrictRegion;
-import com.wasteofplastic.districts.Districts;
-import com.wasteofplastic.districts.GridManager;
-import me.ryanhamshire.GriefPrevention.Claim;
-import me.ryanhamshire.GriefPrevention.GriefPrevention;
-import net.sacredlabyrinth.Phaed.PreciousStones.PreciousStones;
+import creeoer.plugins.in_blocks.adapter.*;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 
 public class RegionManager {
@@ -45,26 +28,28 @@ public class RegionManager {
 
         //This takes the instances provided and, depending on the plugin, adds the method reference
         //Prevents redundant checks
-       for(Plugin plugin: main.dependencies) {
-           if(plugin instanceof WorldGuardPlugin) {
-               checkers.add(this::isPlayerRegion);
+       for(String plugin: main.dependencies) {
+           if(plugin.equals("WorldGuard")) {
+               checkers.add(new WorldGuardAdapter());
            }
-           else if(plugin instanceof Districts) {
-               checkers.add(this::isPlayerDistrict);
+           else if(plugin.equals("Districts")) {
+               checkers.add(new DAdapter());
            }
-           else if(plugin instanceof PreciousStones) {
-               checkers.add(this::isPlayerStone);
+           else if(plugin.equals("PreciousStones")) {
+               checkers.add(new PsAdapter());
            }
-           else if(plugin instanceof GriefPrevention) {
-               checkers.add(this::isPlayerRegion);
+           else if(plugin.equals("GriefPrevention")) {
+               checkers.add(new WorldGuardAdapter());
            }
-           else if(plugin instanceof Towny){
-               checkers.add(this::isPlayerTown);
+           else if(plugin.equals("Towny")){
+               checkers.add(new TownyAdapter());
            }
-           else if(plugin instanceof Factions) {
-               checkers.add(this::isPlayerFac);
+           else if(plugin.equals("Factions")){
+               checkers.add(new FactionsAdapter());
            }
        }
+
+
     }
 
 
@@ -73,118 +58,32 @@ public class RegionManager {
         if(p.isOp()) return true;
 
         //Welp no dependencies, MY WORK IS DONE HERE
-        if(main.dependencies.isEmpty()) return true;
+        if(main.dependencies.isEmpty())
+            return true;
+
+
 
         //This generates a list of locations to go by
         List<Location> locs = generateLocs(p.getLocation(), sch.getRegion());
 
+
+        List<Boolean> bools = new ArrayList<>();
         //Checks to make sure all claims are valid
         for(Location loc: locs){
            for(iChecker check: checkers) {
-               check.isValidPlacement(loc, p);
+               bools.add(check.isValidPlacement(loc, p));
            }
         }
 
+        if(bools.contains(false)) return false;
 
         return true;
 
     }
-
-
-
-
-    public boolean isPlayerRegion(Location loc, Player player) {
-        WorldGuardPlugin instance = WorldGuardPlugin.inst();
-        LocalPlayer p = instance.wrapPlayer(player);
-        com.sk89q.worldguard.protection.managers.RegionManager regionManager = instance.getRegionManager(player.getWorld());
-        if (regionManager == null)
-            return true;
-
-        if (regionManager.getApplicableRegions(loc).size() == 0)
-            return true;
-
-        return  regionManager.getApplicableRegions(loc).canBuild(p);
-    }
-
-
-    public boolean isPlayerFac(Location loc  , Player player){
-        Faction wilderness = FactionColl.get().getNone();
-        Faction safeZone = FactionColl.get().getSafezone();
-        Faction warZone = FactionColl.get().getWarzone();
-
-        //Ok, so if the faction were to be a safezone and/or warzone and the player was not op, return false
-        if(BoardColl.get().getFactionAt(PS.valueOf(loc)) == safeZone || BoardColl.get().getFactionAt(PS.valueOf(loc)) == warZone)
-            return false;
-
-
-        if(BoardColl.get().getFactionAt(PS.valueOf(loc)) == wilderness)
-            return true;
-
-        MPlayer mplayer = MPlayer.get(player.getUniqueId());
-        Faction pFaction = mplayer.getFaction();
-
-        if(BoardColl.get().getFactionAt(PS.valueOf(loc)) == pFaction)
-            return true;
-
-        return false;
-
-
-    }
-
-    public boolean isPlayerArea(Location loc, Player player){
-        Claim claim = GriefPrevention.instance.dataStore.getClaimAt(loc, true, null);
-
-        if(claim == null)
-            return true;
-
-        return claim.getOwnerName().equals(player.getName());
-
-    }
-
-
-    public boolean isPlayerTown(Location loc, Player player){
-
-try{
-    Resident r=TownyUniverse.getDataSource().getResident(player.getName());
-    if(TownyUniverse.getTownName(loc)==null)
-        return true;
-    if(TownyUniverse.getTownName(loc)!=null&!r.hasTown())
-        return false;
-    if(!r.getTown().getName().equals(TownyUniverse.getTownName(loc)))
-        return false;
-    return true;
-
-    //Fuck you towny exceptions
-} catch (Exception e) {}
-        return false;
-    }
-
-
-    public boolean isPlayerStone(Location loc, Player p){
-        return PreciousStones.API().canPlace(p, loc);
-    }
-
-
-
-    public boolean isPlayerDistrict(Location loc, Player p){
-        GridManager manager = Districts.getPlugin().getGrid(p.getWorld().getName());
-        if(manager.districtAtLocation(loc)) {
-            DistrictRegion region = manager.getDistrictRegionAt(loc);
-            if (region.getOwner().equals(p.getUniqueId()))
-                return true;
-            for (UUID trusted : region.getOwnerTrustedUUID()) {
-                if (trusted.equals(p.getUniqueId()))
-                    return true;
-            }
-            return false;
-        }
-        return true;
-    }
-
 
     //TODO Get around to replacing this...
     @Deprecated
-    public List<Location> generateLocs(Location l, Region region) throws DataException, IOException{
+    public List<Location> generateLocs(Location l, CuboidClipboard region) throws DataException, IOException{
         List<Location> locs = new ArrayList<>();
         int xWidth, zLength, yHeight;
         xWidth = region.getWidth();

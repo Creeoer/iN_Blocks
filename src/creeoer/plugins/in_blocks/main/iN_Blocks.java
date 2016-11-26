@@ -22,7 +22,7 @@ public class iN_Blocks extends JavaPlugin {
 	private SchematicManager manager;
 	private FileConfiguration config;
 	private RegionManager rgManager;
-    public Set<Plugin> dependencies;
+    public Set<String> dependencies;
 
 	@SuppressWarnings(value = "all")
 	public void onEnable(){
@@ -51,14 +51,13 @@ public class iN_Blocks extends JavaPlugin {
 				saveDefaultConfig();
 
          dependencies = new HashSet<>();
-
+         getDependencies();
          config = YamlConfiguration.loadConfiguration(new File(getDataFolder() + File.separator + "config.yml"));
 		 manager = new SchematicManager(this);
 		 getCommand("in").setExecutor(new Commands(this));
 		 rgManager = new RegionManager(this);
 		 pm.registerEvents(new SListener(this), this);
 		 pm.registerEvents(new SignListener(this), this);
-         getDependencies();
 	}
 
 	public void onDisable() {
@@ -82,13 +81,13 @@ public class iN_Blocks extends JavaPlugin {
 	}
 
     private void getDependencies(){
-        List<String> d = java.util.Arrays.asList("WorldGuard", "PreciousStones",
+        List<String> depends = java.util.Arrays.asList("WorldGuard", "PreciousStones",
                 "Districts", "Factions", "Towny",
                 "GriefPrevention");
 
         for(Plugin p: Bukkit.getPluginManager().getPlugins()) {
-            if(d.contains(p.getName())) {
-                dependencies.add(p);
+            if(depends.contains(p.getName())) {
+                dependencies.add(p.getName());
             }
         }
     }

@@ -1,6 +1,7 @@
 package creeoer.plugins.in_blocks.main;
 
 import com.sk89q.jnbt.NBTInputStream;
+import com.sk89q.worldedit.CuboidClipboard;
 import com.sk89q.worldedit.EditSession;
 import com.sk89q.worldedit.MaxChangedBlocksException;
 import com.sk89q.worldedit.Vector;
@@ -15,6 +16,7 @@ import com.sk89q.worldedit.function.mask.ExistingBlockMask;
 import com.sk89q.worldedit.function.operation.ForwardExtentCopy;
 import com.sk89q.worldedit.function.operation.Operations;
 import com.sk89q.worldedit.regions.Region;
+import com.sk89q.worldedit.schematic.SchematicFormat;
 import com.sk89q.worldedit.world.DataException;
 import com.sk89q.worldedit.world.registry.LegacyWorldData;
 import org.bukkit.*;
@@ -43,6 +45,7 @@ public class ISchematic {
     private Clipboard board;
     private Extent source;
     private Region region;
+    private CuboidClipboard cc;
     //To be used for block-by-block placement
     private BaseBlock[][][] blockArray;
 
@@ -51,19 +54,18 @@ public class ISchematic {
         public ISchematic(String sName, iN_Blocks instance) throws IOException, DataException {
             this.sName = sName;
             main = instance;
+            config = YamlConfiguration.loadConfiguration(new File(main.getDataFolder() + File.separator + "config.yml"));
             File sFile = new File(main.getDataFolder() + File.separator + "schematics" + File.separator + sName + ".schematic");
-
             NBTInputStream nbtStream = new NBTInputStream(new GZIPInputStream
                     (new BufferedInputStream(new FileInputStream(sFile))));
             ClipboardReader reader = new SchematicReader(nbtStream);
             board = reader.read(LegacyWorldData.getInstance());
+            cc = SchematicFormat.MCEDIT.load(sFile);
             source = board;
-            config = YamlConfiguration.loadConfiguration(new File(main.getDataFolder() + File.separator + "config.yml"));
-
             region = board.getRegion();
-            sizeX = region.getLength();
-            sizeY = region.getHeight();
-            sizeZ = region.getWidth();
+            sizeX = cc.getWidth();
+            sizeY = cc.getHeight();
+            sizeZ = cc.getLength();
             blockArray = getAllBlocks();
 
 
@@ -125,7 +127,7 @@ public class ISchematic {
         }else{
 
             EditSession es = new EditSession(new BukkitWorld(l.getWorld()), 99999999);
-            ForwardExtentCopy copy = new ForwardExtentCopy(source, region, board.getOrigin(), es, BukkitUtil.toVector(l));
+            ForwardExtentCopy copy = new ForwardExtentCopy(source, board.getRegion(), board.getOrigin(), es, BukkitUtil.toVector(l));
             copy.setSourceMask(new ExistingBlockMask(source));
             Operations.completeLegacy(copy);
             es.flushQueue();
@@ -135,12 +137,10 @@ public class ISchematic {
     }
 
     public void preview(Player p, Location l) throws IOException, DataException, MaxChangedBlocksException, NoSuchFieldException, IllegalAccessException {
-        for (int x = 0; x < sizeX; x ++){
-            for (int y = 0; y < sizeY; y ++){
-                for (int z = 0; z < sizeZ; z ++){
-                    BaseBlock block = blockArray[x][y][z];
-                    Material mat = Material.getMaterial(block.getType());
-                    p.sendBlockChange(l.clone().add(x, y, z), mat, (byte) block.getData());
+        for(int x = 0; x < sizeX; x++ ) {
+            for(int y= 0; y < sizeY;y ++) {
+                for(int z = 0; z < sizeZ; z ++) {
+                    p.sendBlockChange(l.clone().add(x, y, z), blockArray[x][y][z].getType(), (byte) blockArray[x][y][z].getData());
                 }
             }
         }
@@ -236,19 +236,21 @@ public class ISchematic {
         return matList;
     }
 
-    public Region getRegion(){
-        return region;
+    public CuboidClipboard getRegion(){
+        return cc;
     }
 
     public BaseBlock[][][] getAllBlocks(){
+
         BaseBlock[][][] blocks = new BaseBlock[sizeX][sizeY][sizeZ];
-        for (int x = 0; x < sizeX; x ++){
-            for(int y=0; y <sizeY;y++){
-                for(int z=0; z < sizeZ;z++){
-                    blocks[x][y][z] = board.getBlock(board.getOrigin().add(new Vector(x, y, z)));
+        for(int x = 0; x < sizeX; x++ ) {
+            for(int y= 0; y < sizeY; y ++) {
+                for(int z = 0; z < sizeZ; z ++) {
+                    blocks[x][y][z] = cc.getBlock(new Vector(x, y, z));
                 }
             }
         }
+
         return blocks;
     }
 
