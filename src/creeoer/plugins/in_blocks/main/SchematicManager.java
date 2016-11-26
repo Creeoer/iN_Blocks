@@ -1,16 +1,16 @@
 package creeoer.plugins.in_blocks.main;
 
 import com.sk89q.worldedit.*;
+import com.sk89q.worldedit.extent.clipboard.Clipboard;
 import com.sk89q.worldedit.schematic.SchematicFormat;
 import com.sk89q.worldedit.session.ClipboardHolder;
-import org.bukkit.Bukkit;
+import com.sk89q.worldedit.world.DataException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public class SchematicManager {
@@ -47,38 +47,45 @@ public class SchematicManager {
 
 	}
 
-	@SuppressWarnings(value = "all")
-	public void createSchematic(LocalPlayer p, String sName, String direction) throws IOException {
 
-		try {
-			LocalSession session = main.getWorldEdit().getWorldEdit().getSession(p);
+	public void createSchematic(LocalPlayer p,String sName,String direction) throws IOException, DataException, EmptyClipboardException{
+        File out = new File(main.getDataFolder() + File.separator + "schematics" + File.separator + sName + ".schematic");
+        out.createNewFile();
 
-			ClipboardHolder holder = session.getClipboard();
-			EditSession es = session.createEditSession(p);
+        LocalSession session =WorldEdit.getInstance().getSessionManager().get(p);
+        ClipboardHolder holder = session.getClipboard();
+        Clipboard board = holder.getClipboard();
+        EditSession es = session.createEditSession(p);
 
-			Vector min = holder.getClipboard().getMinimumPoint();
-			Vector max = holder.getClipboard().getMaximumPoint();
 
-			es.enableQueue();
-			CuboidClipboard cc = new CuboidClipboard(max.subtract(min).add(new Vector(1, 1, 1)), min);
+        Vector min = board.getMinimumPoint();
+        Vector max = board.getMaximumPoint();
+        es.enableQueue();
 
-			cc.copy(es);
-			File out = new File(main.getDataFolder() + File.separator + "schematics" + File.separator + sName + ".schematic");
-			out.createNewFile();
-			SchematicFormat.MCEDIT.save(cc, out);
+        //Load CuboidClipboard selection from board
+        CuboidClipboard cc = new CuboidClipboard(max.subtract(min).add(new Vector(1, 1, 1)), min);
+        cc.copy(es);
+        SchematicFormat.MCEDIT.save(cc, out);
+
+        //Not sure why this doesnt work as expected...
+/*
+            ClipboardHolder holder = session.getClipboard();
+            Clipboard board = holder.getClipboard();
+            Transform transform = holder.getTransform();
+            ClipboardFormat format = ClipboardFormat.findByAlias("mce");
+            BufferedOutputStream output = new BufferedOutputStream(new FileOutputStream(out));
+            Clipboard board = session.getClipboard().getClipboard();
+            ClipboardWriter writer = format.getWriter(output);
+            writer.write(board, session.getClipboard().getWorldData());
+            Bukkit.broadcastMessage("whaddup");
+            */
 
 
 			sFile.set("Schematics." + sName, direction.toUpperCase());
 			sFile.save(cFile);
-
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
 	}
 
 	public void deleteSchematic(String sName) throws IOException {
-
 		if(dir.listFiles().length == 0) return;
 
 		for (File f : dir.listFiles()) {
@@ -110,6 +117,7 @@ public class SchematicManager {
 			 sch = new ISchematic(sName, main);
 			return sch;
 		} catch (Exception e){
+            e.printStackTrace();
 			return null;
 		}
 	}
