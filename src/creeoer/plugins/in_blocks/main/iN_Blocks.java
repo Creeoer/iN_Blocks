@@ -3,6 +3,7 @@ package creeoer.plugins.in_blocks.main;
 import com.sk89q.worldedit.bukkit.WorldEditPlugin;
 import creeoer.plugins.in_blocks.listeners.SListener;
 import creeoer.plugins.in_blocks.listeners.SignListener;
+import creeoer.plugins.in_blocks.objects.Lang;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -23,6 +24,8 @@ public class iN_Blocks extends JavaPlugin {
 	private FileConfiguration config;
 	private RegionManager rgManager;
     public Set<String> dependencies;
+    private File lang_file;
+    private FileConfiguration lang;
 
 	@SuppressWarnings(value = "all")
 	public void onEnable(){
@@ -39,19 +42,36 @@ public class iN_Blocks extends JavaPlugin {
 	    	getDataFolder().mkdirs();
 	    	new File(getDataFolder() + File.separator + "schematics").mkdirs();
 			try {
-
 				new File(getDataFolder() + File.separator + "schematics.yml").createNewFile();
 				saveDefaultConfig();
 			} catch (IOException e) {
 				e.printStackTrace();
-
 			}
 		}
+
+        //Init language file
+        lang_file  = new File(getDataFolder() + "lang.yml");
+        if(lang_file == null || !lang_file.exists()) {
+            try{
+                lang_file.createNewFile();
+            }catch(IOException e){
+                e.printStackTrace();
+            }
+            lang = YamlConfiguration.loadConfiguration(lang_file);
+            for(Lang value: Lang.values()) {
+                lang.set(value.getPath(), value.getDefault());
+            }
+        }
+        if(lang == null)
+            lang = YamlConfiguration.loadConfiguration(lang_file);
+        Lang.setFile(lang);
+
+
+
 		if(!new File(getDataFolder() + File.separator + "config.yml").exists())
 				saveDefaultConfig();
 
-         dependencies = new HashSet<>();
-         getDependencies();
+         initDependencies();
          config = YamlConfiguration.loadConfiguration(new File(getDataFolder() + File.separator + "config.yml"));
 		 manager = new SchematicManager(this);
 		 getCommand("in").setExecutor(new Commands(this));
@@ -80,10 +100,11 @@ public class iN_Blocks extends JavaPlugin {
 		return manager;
 	}
 
-    private void getDependencies(){
+    private void initDependencies(){
         List<String> depends = java.util.Arrays.asList("WorldGuard", "PreciousStones",
                 "Districts", "Factions", "Towny",
                 "GriefPrevention");
+        dependencies = new HashSet<>();
 
         for(Plugin p: Bukkit.getPluginManager().getPlugins()) {
             if(depends.contains(p.getName())) {
@@ -96,9 +117,9 @@ public class iN_Blocks extends JavaPlugin {
 
 		Plugin plugin = Bukkit.getServer().getPluginManager().getPlugin("WorldEdit");
 
-		if(plugin == null || !(plugin instanceof WorldEditPlugin)){
+		if(plugin == null || !(plugin instanceof WorldEditPlugin))
 			return null;
-		}
+
 
 		return (WorldEditPlugin) plugin;
 	}

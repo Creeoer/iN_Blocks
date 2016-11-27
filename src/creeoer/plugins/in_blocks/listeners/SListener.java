@@ -7,6 +7,7 @@ import creeoer.plugins.in_blocks.main.ISchematic;
 import creeoer.plugins.in_blocks.main.RegionManager;
 import creeoer.plugins.in_blocks.main.SchematicManager;
 import creeoer.plugins.in_blocks.main.iN_Blocks;
+import creeoer.plugins.in_blocks.objects.Lang;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -69,7 +70,7 @@ public class SListener implements Listener {
                     e.setCancelled(true);
 
                     if(p.isConversing()){
-                        p.sendRawMessage(ChatColor.RED+"Can't place another schematic while in preview mode!");
+                        p.sendRawMessage(ChatColor.RED+ Lang.PREVIEW_ERROR.toString());
                         return;
                     }
 
@@ -84,7 +85,7 @@ public class SListener implements Listener {
                     sch=manager.getSchematic(name);
 
                     if(sch==null){
-                        p.sendMessage(ChatColor.RED+"What is this! Apparently the schematic you are trying to place does not exist!");
+                        p.sendMessage(ChatColor.RED+ Lang.EXISTS.toString());
                         return;
                     }
 
@@ -92,7 +93,7 @@ public class SListener implements Listener {
                     this.block=e.getBlockPlaced();
 
                     if(manager.hasPermission(ChatColor.stripColor(split[0]))&&!p.hasPermission("in."+ChatColor.stripColor(split[0]))){
-                        p.sendMessage(ChatColor.RED+"You don't have permission to place this type of schematic!");
+                        p.sendMessage(ChatColor.RED+ Lang.NO_PERM.toString());
                         return;
                     }
                     List<ItemStack> requ=new ArrayList<>();
@@ -106,7 +107,7 @@ public class SListener implements Listener {
                                 ItemStack itemStack=new ItemStack(Material.getMaterial(parts[1].toUpperCase()));
 
                                 if(!p.getInventory().containsAtLeast(itemStack,i)){
-                                    p.sendMessage(ChatColor.AQUA+"Not enough "+itemStack.getType().toString());
+                                    p.sendMessage(ChatColor.AQUA+"Not enough "+ itemStack.getType().toString());
                                     return;
                                 }
                                 requ.add(new ItemStack(Material.getMaterial(parts[1].toUpperCase()),i));
@@ -117,7 +118,7 @@ public class SListener implements Listener {
 
                         try{
                             if(!rgManager.canPlayerPlace(p,sch)){
-                                p.sendMessage(ChatColor.RED+"Due to land restrictions, you can not place your schematic here");
+                                p.sendMessage(ChatColor.RED+ Lang.BAD_PLACE.toString());
                                 return;
                             }
                         }catch(Exception ignored){
@@ -146,7 +147,7 @@ public class SListener implements Listener {
         ConversationFactory fac = new ConversationFactory(main).withFirstPrompt(new ValidatingPrompt() {
             @Override
             public String getPromptText(ConversationContext conversationContext){
-                return ChatColor.GREEN + "Showing a rough preview of the schematic,type yes to place or anything else to cancel. You have " + config.getInt("Options.preview-time") + " seconds.";
+                return ChatColor.GREEN + Lang.PREVIEW.toString().replace("%n", Integer.toString(config.getInt("Options.preview-time")));
             }
 
             @Override
@@ -159,7 +160,7 @@ public class SListener implements Listener {
                 if(!s.equals("yes")&&!s.equals("rotate")){
                     sch.unloadPreview(p,pLoc);
                     isDone=true;
-                    p.sendRawMessage(ChatColor.RED+"Placement cancelled!");
+                    p.sendRawMessage(ChatColor.RED+ Lang.CANCEL.toString());
                     return Prompt.END_OF_CONVERSATION;
                 }
 
@@ -169,7 +170,7 @@ public class SListener implements Listener {
                 sch.unloadPreview(p,pLoc);
 
                 if(e.isCancelled()){
-                    p.sendRawMessage(ChatColor.RED+"Block placement was cancelled!!");
+                    p.sendRawMessage(ChatColor.RED+ Lang.CANCEL.toString());
                     return Prompt.END_OF_CONVERSATION;
                 }
 
@@ -177,7 +178,7 @@ public class SListener implements Listener {
                     sch.paste(pLoc,p);
                 }catch(Exception ignored){
                 }
-                p.sendRawMessage(ChatColor.YELLOW+"Unloading preview...schematic successfully placed!");
+                p.sendRawMessage(ChatColor.YELLOW+ Lang.SUCCESS_PLACE.toString());
                 if(stack.getAmount()>1){
                     ItemMeta meta=stack.getItemMeta();
                     meta.setDisplayName(ChatColor.YELLOW+sch.getName()+" schematic");
@@ -218,7 +219,7 @@ public class SListener implements Listener {
                     ItemStack item = view.getItem(i);
                     if(item.hasItemMeta() && item.getItemMeta().hasDisplayName()){
                         if(item.getItemMeta().getDisplayName().contains("schematic")){
-                            e.getWhoClicked().sendMessage(ChatColor.RED + "You can't use schematic blocks in anvils ):<");
+                            e.getWhoClicked().sendMessage(ChatColor.RED + Lang.ANVIL.toString());
                             e.setCancelled(true);
                         }
                     }

@@ -6,6 +6,7 @@ import com.sk89q.worldedit.LocalSession;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.session.ClipboardHolder;
 import com.sk89q.worldedit.world.DataException;
+import creeoer.plugins.in_blocks.objects.Lang;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -32,12 +33,12 @@ public class Commands implements CommandExecutor {
 		
 		if(cmd.getName().equalsIgnoreCase("in")){
 			if(args.length == 0){
-				sender.sendMessage(ChatColor.RED + "Syntax error!");
+				sender.sendMessage(ChatColor.RED + Lang.SYNTAX.toString());
 				return false;
 			}
 
 		if(!cmdList.contains(args[0])){
-				sender.sendMessage(ChatColor.RED + "Bad usage: [create/delete/give]");
+				sender.sendMessage(ChatColor.RED + Lang.COMMANDS.toString());
 		        return false;
 			}
 			
@@ -45,18 +46,18 @@ public class Commands implements CommandExecutor {
 				//in create House
 
 				if(!(sender instanceof Player)){
-					sender.sendMessage(ChatColor.RED + "You can't execute any commands if you're the server!");
+					sender.sendMessage(ChatColor.RED + Lang.CONSOLE.toString());
 					return false;
 				}
 				Player p = (Player) sender;
 
 				if(!p.hasPermission("in.create")) {
-					p.sendMessage(ChatColor.RED + "You have no permission to execute this command!");
+					p.sendMessage(ChatColor.RED + Lang.NO_PERM.toString());
 					return false;
 				}
 
 				if (args.length != 2){
-					p.sendMessage(ChatColor.RED + "Syntax error!");
+					p.sendMessage(ChatColor.RED + Lang.SYNTAX.toString());
 					return false;
 				}
 
@@ -79,7 +80,7 @@ public class Commands implements CommandExecutor {
 			   }
 
 				if(manager.doesExist(name)){
-					p.sendMessage(ChatColor.RED + "A schematic by this name already exists!");
+					p.sendMessage(ChatColor.RED + Lang.EXISTS.toString());
 					return false;
 				}
 
@@ -109,8 +110,8 @@ public class Commands implements CommandExecutor {
 				}
 
 				//If all went well..
-				p.sendMessage(ChatColor.AQUA + "The schematic of: " + ChatColor.YELLOW + name + ChatColor.AQUA + " has successfully been created!");
-				p.sendMessage(ChatColor.AQUA + "Registered schematic with direction: " + ChatColor.YELLOW + direction.toUpperCase());
+				p.sendMessage(ChatColor.AQUA + Lang.CREATE.toString().replace("%s", name));
+				p.sendMessage(ChatColor.AQUA + Lang.REGISTER.toString() + ChatColor.YELLOW + direction.toUpperCase());
 				return true;
 
 
@@ -118,22 +119,22 @@ public class Commands implements CommandExecutor {
 			CommandSender p = sender;
 			if(args[0].equalsIgnoreCase("delete")){
 				if(!sender.hasPermission("in.remove")){
-					p.sendMessage(ChatColor.RED + "You have no permission to execute this command!");
+					p.sendMessage(ChatColor.RED + Lang.NO_PERM.toString());
 					return false;
 				}
 
 				if (args.length != 2){
-					p.sendMessage(ChatColor.RED + "Syntax error!");
+					p.sendMessage(ChatColor.RED + Lang.SYNTAX.toString());
 					return false;
 				}
 
 				if(!manager.doesExist(args[1])){
-					p.sendMessage(ChatColor.RED + "Schematic doesn't exists!");
+					p.sendMessage(ChatColor.RED + Lang.EXISTS.toString());
 					return false;
 				}
 				try {
 					manager.deleteSchematic(args[1]);
-					p.sendMessage(ChatColor.AQUA + "The schematic of " + ChatColor.YELLOW  + args[1] + ChatColor.AQUA + " was successfully deleted!");
+					p.sendMessage(ChatColor.AQUA + Lang.DELETE.toString().replace("%s", args[1]));
 				} catch (Exception ignored) {}
 			}
 
@@ -141,12 +142,12 @@ public class Commands implements CommandExecutor {
 			if (args[0].equalsIgnoreCase("give")){
 
 				if (!sender.hasPermission("in.give")){
-					p.sendMessage(ChatColor.RED + "You have no permission to execute this command!");
+					p.sendMessage(ChatColor.RED + Lang.NO_PERM.toString());
 					return false;
 				}
 //in give pName sName 30
 				if (args.length < 3){
-					p.sendMessage(ChatColor.RED + "Syntax error!");
+					p.sendMessage(ChatColor.RED + Lang.SYNTAX.toString());
 					return false;
 				}
 
@@ -155,7 +156,7 @@ public class Commands implements CommandExecutor {
 				String sName = args[2];
 
 				if(!manager.doesExist(sName)) {
-                    p.sendMessage(ChatColor.RED + "Schematic does not exists!");
+                    p.sendMessage(ChatColor.RED + Lang.AFFORD.toString());
 					return false;
 				}
 

@@ -4,6 +4,7 @@ import com.sk89q.worldedit.world.DataException;
 import creeoer.plugins.in_blocks.main.ISchematic;
 import creeoer.plugins.in_blocks.main.SchematicManager;
 import creeoer.plugins.in_blocks.main.iN_Blocks;
+import creeoer.plugins.in_blocks.objects.Lang;
 import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.ChatColor;
 import org.bukkit.block.BlockState;
@@ -35,7 +36,7 @@ public class SignListener implements Listener {
             Player p = e.getPlayer();
 
             if(!p.hasPermission("in.sign.define")){
-                p.sendMessage(ChatColor.RED + "You don't have permission to define this sign!");
+                p.sendMessage(ChatColor.RED + Lang.NO_PERM.toString());
                 return;
             }
             String[] lines = e.getLines();
@@ -49,19 +50,19 @@ public class SignListener implements Listener {
             try {
                 amount = Integer.parseInt(lines[1]);
             } catch (NumberFormatException ignored){
-                p.sendMessage(ChatColor.RED + "Invalid sign syntax!");
+                p.sendMessage(ChatColor.RED + Lang.INVALID_SIGN.toString());
                 return;
             }
 
             if(manager.getSchematic(lines[2]) == null){
-                p.sendMessage(ChatColor.RED + "Can not find schematic of this name!");
+                p.sendMessage(ChatColor.RED + Lang.EXISTS.toString());
                 return;
             }
 
             //We're assuming if they got this far the sign is in fact perfectly valid
 
 
-
+            p.sendMessage(ChatColor.GREEN + Lang.VALID_SIGN.toString());
             e.setLine(0, main.getConfig().getString("Options.sign-name"));
 
         }
@@ -77,7 +78,7 @@ public class SignListener implements Listener {
                 if(sign.getLine(0).equals(main.getConfig().getString("Options.sign-name"))){
 
                     if(!p.hasPermission("in.sign.use")) {
-                        p.sendMessage(ChatColor.RED + "You don't have permission to use this!");
+                        p.sendMessage(ChatColor.RED + Lang.NO_PERM.toString());
                         return;
                     }
 
@@ -85,13 +86,13 @@ public class SignListener implements Listener {
                     EconomyResponse trans = main.getEcon().withdrawPlayer(p.getName(), amount);
 
                     if(!trans.transactionSuccess()){
-                        p.sendMessage(ChatColor.RED + "You don't have enough funds to afford this!");
+                        p.sendMessage(ChatColor.RED + Lang.AFFORD.toString());
                         return;
                     }
                     ISchematic schematic = new ISchematic(sign.getLine(2), main);
                     p.getInventory().addItem(schematic.getItem(1));
                     p.updateInventory();
-                    p.sendMessage(ChatColor.AQUA + "Successfully purchased schematic block!");
+                    p.sendMessage(ChatColor.AQUA + Lang.BUY.toString());
                 }
 
 

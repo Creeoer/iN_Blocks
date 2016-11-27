@@ -19,6 +19,7 @@ import com.sk89q.worldedit.regions.Region;
 import com.sk89q.worldedit.schematic.SchematicFormat;
 import com.sk89q.worldedit.world.DataException;
 import com.sk89q.worldedit.world.registry.LegacyWorldData;
+import creeoer.plugins.in_blocks.objects.Lang;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -115,7 +116,7 @@ public class ISchematic {
                             }
                             place+=1;
                         }else{
-                            p.sendMessage(ChatColor.GREEN + "Building completed!");
+                            p.sendMessage(ChatColor.GREEN + Lang.COMPLETE.toString());
                             this.cancel();
                             return;
                         }

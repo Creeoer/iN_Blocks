@@ -34,5 +34,5 @@ Options:
   #Should resources be taken into account?
   survival-mode: false
 
-  #Enable sound during block-by-block placement
+  #Enable sound during block-by-block placement DISABLE IF USING 1.8
   sound: false
