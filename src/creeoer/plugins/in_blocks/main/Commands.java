@@ -6,6 +6,7 @@ import com.sk89q.worldedit.LocalSession;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.session.ClipboardHolder;
 import com.sk89q.worldedit.world.DataException;
+import creeoer.plugins.in_blocks.builders.BlockFactory;
 import creeoer.plugins.in_blocks.objects.Lang;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -170,14 +171,22 @@ public class Commands implements CommandExecutor {
        schematic=new ISchematic(sName,main);
     } catch (IOException|DataException e) {e.printStackTrace(); return false;}
 
+                BlockFactory factory = new BlockFactory(sName, main);
+
+                if(main.getConfig().getBoolean("Options.survival-mode"))
+                    factory.setRequirements(schematic.getBlockRequirements());
+
+
 				if (args.length == 4){
 					int amount = Integer.parseInt(args[3]);
-			        target.getInventory().addItem(schematic.getItem(amount));
+                    factory.setAmount(amount);
+			        target.getInventory().addItem(factory.build());
 					target.updateInventory();
 					return true;
 				}
 
-				target.getInventory().addItem(schematic.getItem(1));
+                factory.setAmount(1);
+				target.getInventory().addItem(factory.build());
 				target.updateInventory();
 
 			}

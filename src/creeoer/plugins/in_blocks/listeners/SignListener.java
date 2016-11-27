@@ -1,6 +1,7 @@
 package creeoer.plugins.in_blocks.listeners;
 
 import com.sk89q.worldedit.world.DataException;
+import creeoer.plugins.in_blocks.builders.BlockFactory;
 import creeoer.plugins.in_blocks.main.ISchematic;
 import creeoer.plugins.in_blocks.main.SchematicManager;
 import creeoer.plugins.in_blocks.main.iN_Blocks;
@@ -90,7 +91,14 @@ public class SignListener implements Listener {
                         return;
                     }
                     ISchematic schematic = new ISchematic(sign.getLine(2), main);
-                    p.getInventory().addItem(schematic.getItem(1));
+
+                    BlockFactory factory = new BlockFactory(schematic.getName(), main);
+
+                    if(main.getConfig().getBoolean("Options.survival-mode"))
+                        factory.setRequirements(schematic.getBlockRequirements());
+
+                    factory.setAmount(1);
+                    p.getInventory().addItem(factory.build());
                     p.updateInventory();
                     p.sendMessage(ChatColor.AQUA + Lang.BUY.toString());
                 }

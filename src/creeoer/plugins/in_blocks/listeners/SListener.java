@@ -29,12 +29,12 @@ import org.bukkit.inventory.meta.ItemMeta;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
+
 import java.util.List;
 
 public class SListener implements Listener {
 
-    private static List<String> previews = Collections.synchronizedList(new ArrayList<String>());
+
 
     private SchematicManager manager;
     private ISchematic sch;
@@ -217,8 +217,8 @@ public class SListener implements Listener {
             for (int i = 0; i < 3; i ++){
                 if(view.getItem(i) != null){
                     ItemStack item = view.getItem(i);
-                    if(item.hasItemMeta() && item.getItemMeta().hasDisplayName()){
-                        if(item.getItemMeta().getDisplayName().contains("schematic")){
+                    if(item.hasItemMeta() && item.getItemMeta().hasDisplayName() || item.getItemMeta().hasLore()){
+                        if(item.getItemMeta().getDisplayName().contains("schematic") || item.getItemMeta().hasLore() && item.getItemMeta().getLore().contains("schematic")){
                             e.getWhoClicked().sendMessage(ChatColor.RED + Lang.ANVIL.toString());
                             e.setCancelled(true);
                         }

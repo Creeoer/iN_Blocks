@@ -1,9 +1,9 @@
 package creeoer.plugins.in_blocks.main;
 
-import com.sk89q.worldedit.CuboidClipboard;
+import com.sk89q.worldedit.Vector;
+import com.sk89q.worldedit.extent.clipboard.Clipboard;
 import com.sk89q.worldedit.world.DataException;
 import creeoer.plugins.in_blocks.adapter.*;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
@@ -64,7 +64,7 @@ public class RegionManager {
 
 
         //This generates a list of locations to go by
-        List<Location> locs = generateLocs(p.getLocation(), sch.getRegion());
+        List<Location> locs = generateLocs(p.getLocation(), sch.getBoard());
 
 
         List<Boolean> bools = new ArrayList<>();
@@ -83,19 +83,29 @@ public class RegionManager {
 
     //TODO Get around to replacing this...
     @Deprecated
-    public List<Location> generateLocs(Location l, CuboidClipboard region) throws DataException, IOException{
+    public List<Location> generateLocs(Location l, Clipboard board) throws DataException, IOException{
         List<Location> locs = new ArrayList<>();
-        int xWidth, zLength, yHeight;
-        xWidth = region.getWidth();
-        yHeight = region.getHeight();
-        zLength = region.getLength();
+
+        Vector min, max;
+        int minX, minY, minZ, maxX, maxY, maxZ;
+
+        min = board.getMinimumPoint();
+        max = board.getMaximumPoint();
+
+        minX = min.getBlockX();
+        minY = min.getBlockY();
+        minZ = min.getBlockZ();
+        maxX = max.getBlockX();
+        maxY = max.getBlockY();
+        maxZ = max.getBlockZ();
+
         int cRadius = config.getInt("Options.check-radius");
         double xx = l.getX();
         double yy = l.getY();
         double zz = l.getZ();
-        for(int x = 0; x <= xWidth + cRadius; x++){
-            for(int y = 0; y <= yHeight + cRadius; y++){
-                for(int z = 0; z <= zLength + cRadius; z++){
+        for(int x = minX; x <= maxX + cRadius; x++){
+            for(int y = minY; y <= maxY + cRadius; y++){
+                for(int z = minZ; z <= maxZ + cRadius; z++){
                     Location loc1 = new Location(l.getWorld(), xx + x, yy + y, zz + z);
                     locs.add(loc1);
                     Location loc2 = new Location(l.getWorld(), xx - x, yy - y, zz - z);
