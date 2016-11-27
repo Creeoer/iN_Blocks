@@ -50,7 +50,7 @@ public class iN_Blocks extends JavaPlugin {
 		}
 
         //Init language file
-        lang_file  = new File(getDataFolder() + "lang.yml");
+        lang_file  = new File(getDataFolder() + File.separator + "lang.yml");
         if(lang_file == null || !lang_file.exists()) {
             try{
                 lang_file.createNewFile();
@@ -61,9 +61,15 @@ public class iN_Blocks extends JavaPlugin {
             for(Lang value: Lang.values()) {
                 lang.set(value.getPath(), value.getDefault());
             }
+            try{
+                lang.save(lang_file);
+            }catch(IOException e){
+                e.printStackTrace();
+            }
         }
         if(lang == null)
             lang = YamlConfiguration.loadConfiguration(lang_file);
+
         Lang.setFile(lang);
 
 

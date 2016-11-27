@@ -189,10 +189,14 @@ public class SListener implements Listener {
                 }else{
                     p.getInventory().removeItem(stack);
             }
-                for(ItemStack requirement: requirements) {
-                   p.getInventory().removeItem(new ItemStack(requirement.getType(), requirement.getAmount()));
+
+                if(!config.getBoolean("Options.block-by-block")){
+                    for(ItemStack requirement : requirements){
+                        p.getInventory().removeItem(new ItemStack(requirement.getType(),requirement.getAmount()));
+                    }
+                    p.updateInventory();
                 }
-                p.updateInventory();
+
                 return Prompt.END_OF_CONVERSATION;
 
             }

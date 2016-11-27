@@ -38,6 +38,7 @@ public class BlockFactory{
 
 
     public ItemStack build(){
+        stack.setItemMeta(this.meta);
         return stack;
     }
 

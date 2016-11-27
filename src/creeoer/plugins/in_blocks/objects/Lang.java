@@ -18,14 +18,15 @@ public enum Lang{
     SYNTAX("messages.syntax-error", "Incorrect syntax!"),
     COMMANDS("messages.commands", "Commands: /in [give/create/delete]"),
     CREATE("messages.create", "The schematic of %s was successfully created!"),
-    EXISTS("message.exists", "This schematic does not exists!"),
+    EXISTS("messages.exists", "This schematic does not exists!"),
     DELETE("messages.delete", "The schematic of %s has been successfully deleted!"),
     REGISTER("messages.register", "Registered schematic with direction of: "),
     CONSOLE("messages.console", "You can't do this command as the server!"),
-    PREVIEW("messages.preview", "Now in preview mode! Type /yes in %n seconds to place or anything else to cancel!"),
+    PREVIEW("messages.preview", "Now in preview mode! Type yes in %n seconds to place or anything else to cancel!"),
     PREVIEW_ERROR("messages.preview-error", "Can't place another build block while in preview mode!"),
     CANCEL("messages.build-cancel", "Placement cancelled!"),
-    ANVIL("messages.anvil", "You can't use schematic blocks in anvils! ):<");
+    ANVIL("messages.anvil", "You can't use schematic blocks in anvils! ):<"),
+    MATERIALS("messages.materials", "Not enough materials to complete! Cancelling build");
 
 
 
