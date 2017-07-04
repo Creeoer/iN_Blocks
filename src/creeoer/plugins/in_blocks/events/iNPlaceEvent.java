@@ -9,7 +9,7 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
 
-public class iNPlaceEvent extends Event implements Cancellable{
+public class iNPlaceEvent extends Event implements Cancellable {
 
     private static final HandlerList handlers = new HandlerList();
     private String name;
@@ -19,7 +19,7 @@ public class iNPlaceEvent extends Event implements Cancellable{
     private Location loc;
     private ISchematic schematic;
 
-    public iNPlaceEvent(String n, Player p, Location l, Block b, ISchematic sch){
+    public iNPlaceEvent(String n, Player p, Location l, Block b, ISchematic sch) {
         name = n;
         placer = p;
         loc = l;
@@ -29,19 +29,19 @@ public class iNPlaceEvent extends Event implements Cancellable{
     }
 
     @Override
-    public HandlerList getHandlers(){
+    public HandlerList getHandlers() {
         return handlers;
     }
 
-    public static HandlerList getHandlerList(){
+    public static HandlerList getHandlerList() {
         return handlers;
     }
 
-    public Block getBlock(){
+    public Block getBlock() {
         return block;
     }
 
-    public String getName(){
+    public String getName() {
         return name;
     }
 
@@ -49,21 +49,21 @@ public class iNPlaceEvent extends Event implements Cancellable{
         return schematic;
     }
 
-    public Player getPlacer(){
-       return placer;
+    public Player getPlacer() {
+        return placer;
     }
 
-    public Location getLocation(){
-       return loc;
+    public Location getLocation() {
+        return loc;
     }
 
     @Override
-    public boolean isCancelled(){
+    public boolean isCancelled() {
         return cancelled;
     }
 
     @Override
-    public void setCancelled(boolean b){
-          cancelled = b;
+    public void setCancelled(boolean b) {
+        cancelled = b;
     }
 }

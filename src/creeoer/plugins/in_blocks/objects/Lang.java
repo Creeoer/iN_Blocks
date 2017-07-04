@@ -19,6 +19,7 @@ public enum Lang{
     COMMANDS("messages.commands", "Commands: /in [give/create/delete]"),
     CREATE("messages.create", "The schematic of %s was successfully created!"),
     EXISTS("messages.exists", "This schematic does not exists!"),
+    ALREADY_EXISTS("messages.already-exists", "This schematic already exists!"),
     DELETE("messages.delete", "The schematic of %s has been successfully deleted!"),
     REGISTER("messages.register", "Registered schematic with direction of: "),
     CONSOLE("messages.console", "You can't do this command as the server!"),
@@ -26,7 +27,7 @@ public enum Lang{
     PREVIEW_ERROR("messages.preview-error", "Can't place another build block while in preview mode!"),
     CANCEL("messages.build-cancel", "Placement cancelled!"),
     ANVIL("messages.anvil", "You can't use schematic blocks in anvils! ):<"),
-    MATERIALS("messages.materials", "Not enough materials to complete! Cancelling build");
+    MATERIALS("messages.materials", "Not enough materials to complete! You have 3 minutes to provide the chest with material"),;
 
 
 

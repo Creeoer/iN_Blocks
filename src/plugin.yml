@@ -1,9 +1,11 @@
 name: iN_Blocks
-version: 1.2.5
+version: 1.2.7
 main: creeoer.plugins.in_blocks.main.iN_Blocks
 author: Creeoer
+depend: [WorldEdit]
 
 
 commands:
    in:
      description: iN_Block commands
+     usage: "§bUsage: /in [give/create/delete/list]"

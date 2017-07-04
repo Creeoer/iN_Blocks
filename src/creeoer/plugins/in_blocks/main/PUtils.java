@@ -30,7 +30,7 @@ public class PUtils {
 		} else if (337.5 <= rot && rot < 360.0) {
 			return "north";
 		} else {
-			return null;
+			return "No direction";
 		}
 	}
 }

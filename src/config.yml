@@ -1,9 +1,4 @@
 Options:
-
-  #Put your desired material that the schematic blocks should be made of
-  #It can not be an item (Like a door or torch)
-  material: BEDROCK
-
   #Amount of time player gets to preview the schematic before
   #cancellation (In seconds)
   preview-time: 10

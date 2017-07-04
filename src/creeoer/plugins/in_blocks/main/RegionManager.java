@@ -1,8 +1,6 @@
 package creeoer.plugins.in_blocks.main;
 
 import com.sk89q.worldedit.CuboidClipboard;
-import com.sk89q.worldedit.Vector;
-import com.sk89q.worldedit.extent.clipboard.Clipboard;
 import com.sk89q.worldedit.world.DataException;
 import creeoer.plugins.in_blocks.adapter.*;
 import org.bukkit.Location;
@@ -33,14 +31,11 @@ public class RegionManager {
            if(plugin.equals("WorldGuard")) {
                checkers.add(new WorldGuardAdapter());
            }
-           else if(plugin.equals("Districts")) {
-               checkers.add(new DAdapter());
-           }
            else if(plugin.equals("PreciousStones")) {
                checkers.add(new PsAdapter());
            }
            else if(plugin.equals("GriefPrevention")) {
-               checkers.add(new WorldGuardAdapter());
+               checkers.add(new GpAdapter());
            }
            else if(plugin.equals("Towny")){
                checkers.add(new TownyAdapter());
