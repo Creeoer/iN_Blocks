@@ -22,6 +22,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.AnvilInventory;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
@@ -77,6 +78,10 @@ public class SListener implements Listener {
             if (meta.hasDisplayName() || meta.hasLore()) {
                 if (meta.hasLore() && meta.getLore().get(0).contains("schematic") || meta.hasDisplayName() && meta.getDisplayName().charAt(0) == ChatColor.COLOR_CHAR && meta.getDisplayName().contains("schematic")) {
                     Location l = e.getBlock().getLocation();
+
+                    l.add(1, 0, 1);
+
+
                     e.setCancelled(true);
 
                     if (p.isConversing()) {
@@ -212,7 +217,8 @@ public class SListener implements Listener {
 
                 try {
                     sch.paste(pLoc, p);
-                } catch (Exception ignored) {
+                } catch (Exception ex) {
+                    ex.printStackTrace();
                 }
                 p.sendRawMessage(ChatColor.YELLOW + Lang.SUCCESS_PLACE.toString());
                 if (stack.getAmount() > 1) {

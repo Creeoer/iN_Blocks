@@ -20,6 +20,7 @@ import com.sk89q.worldedit.world.DataException;
 import com.sk89q.worldedit.world.registry.LegacyWorldData;
 import org.bukkit.*;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -45,6 +46,7 @@ public class ISchematic {
     private BukkitTask task;
     //To be used for block-by-block placement
     private BaseBlock[][][] blockArray;
+    private BlockFace facing;
 
 
     //TODO Update with new worldedit api - DONE!
@@ -59,20 +61,17 @@ public class ISchematic {
         board = reader.read(LegacyWorldData.getInstance());
         cc = SchematicFormat.MCEDIT.load(sFile);
         source = board;
-
         //Still using cuboid clipboard as that's the only thing that works apparently
         sizeX = cc.getWidth();
         sizeY = cc.getHeight();
         sizeZ = cc.getLength();
-
         blockArray = loadBlocks();
-
     }
 
 
     public void paste(final Location l, final Player p) throws IOException, DataException, MaxChangedBlocksException {
         if (config.getBoolean("Options.block-by-block")) {
-            main.getBuildManager().createNewTask(this, l, p.getName()).runTaskTimer(main, 0, 20 / config.getInt("Options.blocksPerSecond"));
+            main.getBuildManager().createNewTask(this, l, p.getName()).runTaskTimer(main, 40, 20 / config.getInt("Options.blocksPerSecond"));
         } else {
             EditSession es = new EditSession(new BukkitWorld(l.getWorld()), 99999999);
             ForwardExtentCopy copy = new ForwardExtentCopy(source, board.getRegion(), board.getOrigin(), es, BukkitUtil.toVector(l));
@@ -83,6 +82,20 @@ public class ISchematic {
     }
 
     public void preview(Player p, Location l) throws IOException, DataException, MaxChangedBlocksException, NoSuchFieldException, IllegalAccessException {
+
+
+
+/*
+        Block b = l.clone().add(1, 1, 1).getBlock();
+        for(BlockFace face: BlockFace.values()){
+            if(l.getBlock().getRelative(face).equals(b)){
+                facing = face;
+                break;
+            }
+        }
+        cc.rotate2D(180);
+
+*/
         for (int x = 0; x < sizeX; x++) {
             for (int y = 0; y < sizeY; y++) {
                 for (int z = 0; z < sizeZ; z++) {
@@ -90,6 +103,8 @@ public class ISchematic {
                 }
             }
         }
+
+
     }
 
     public void unloadPreview(Player p, Location l) {
@@ -147,6 +162,7 @@ public class ISchematic {
     }
 
     public BaseBlock[][][] loadBlocks() {
+        //If north blockface is null check which blockface isnt null and based on that rotate clipboard so that it isnt null
         BaseBlock[][][] blocks = new BaseBlock[sizeX][sizeY][sizeZ];
         for (int x = 0; x < sizeX; x++) {
             for (int y = 0; y < sizeY; y++) {

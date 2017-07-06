@@ -65,6 +65,8 @@ public class RegionManager {
 
         List<Boolean> bools = new ArrayList<>();
         //Checks to make sure all claims are valid
+
+
         for(Location loc: locs){
            for(iChecker check: checkers) {
                bools.add(check.isValidPlacement(loc, p));
@@ -76,6 +78,7 @@ public class RegionManager {
         return true;
 
     }
+
 
     //TODO Get around to replacing this...
     @Deprecated

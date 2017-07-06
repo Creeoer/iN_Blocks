@@ -67,6 +67,13 @@ public class Commands implements CommandExecutor {
                 }
 
                 YamlConfiguration schematicFile = YamlConfiguration.loadConfiguration(new File(main.getDataFolder() + File.separator + "schematics.yml"));
+
+
+                if(schematicFile.getConfigurationSection("Schematics") == null){
+                    sender.sendMessage(ChatColor.RED + "No schematics to list!");
+                    return true;
+                }
+
                 for (String schematics : schematicFile.getConfigurationSection("Schematics").getKeys(false)) {
                     sender.sendMessage(ChatColor.YELLOW + schematics);
                 }
