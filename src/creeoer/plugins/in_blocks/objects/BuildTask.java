@@ -36,6 +36,7 @@ public class BuildTask extends BukkitRunnable {
     private List<Block> originalBlocks;
     private boolean wasRun, buildFulfilled, cancel;
     private List<Material> ignoredMaterials;
+    private ItemStack requirement;
     int size;
     HashMap<Block, BaseBlock> blocks;
 
@@ -105,20 +106,20 @@ public class BuildTask extends BukkitRunnable {
             Block block = originalBlocks.get(place);
             BaseBlock base = blocks.get(block);
 
-
                 //Disabled by default to make plugin backwards compatible
                 if (config.getBoolean("Options.sound"))
                     p.playSound(l, Sound.BLOCK_GLASS_STEP, 1, 0);
 
                 if (config.getBoolean("Options.survival-mode")) {
 
+                    ItemStack stack = new ItemStack(base.getType(), 1);
+
                     if (base.getType() == Material.WALL_SIGN.getId())
-                        base.setType(Material.SIGN.getId());
+                        stack.setType(Material.SIGN);
 
                     if(base.getType() == Material.WOODEN_DOOR.getId())
-                        base.setType(Material.WOOD_DOOR.getId());
+                        stack.setType(Material.WOOD_DOOR);
 
-                    ItemStack stack = new ItemStack(base.getType(), 1);
 
 
                     if (p == null || !p.isOnline()) {
