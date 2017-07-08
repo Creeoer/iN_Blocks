@@ -10,6 +10,8 @@ import creeoer.plugins.in_blocks.builders.BlockBuilder;
 import creeoer.plugins.in_blocks.objects.Lang;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.block.BlockFace;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -19,7 +21,9 @@ import org.bukkit.entity.Player;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class Commands implements CommandExecutor {
 
@@ -101,7 +105,7 @@ public class Commands implements CommandExecutor {
                 }
 
                 String name = args[1];
-                String direction = PUtils.getCardinalDirection(p);
+                String direction = PUtils.getCardinalDirection(p.getLocation().getYaw(), false).toString();
                 //TODO If a player reference can't get me their dection then ima use this
 
 				/*String direction = args[2];

@@ -28,7 +28,7 @@ public class FactionsAdapter implements iChecker {
 
 
         if (BoardColl.get().getFactionAt(PS.valueOf(loc)) == wilderness)
-            return false;
+            return true;
 
         MPlayer mplayer = MPlayer.get(player.getUniqueId());
         Faction pFaction = mplayer.getFaction();

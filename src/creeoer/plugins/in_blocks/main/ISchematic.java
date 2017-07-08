@@ -21,6 +21,8 @@ import com.sk89q.worldedit.world.registry.LegacyWorldData;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.Chest;
+import org.bukkit.block.EnderChest;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -61,6 +63,9 @@ public class ISchematic {
         board = reader.read(LegacyWorldData.getInstance());
         cc = SchematicFormat.MCEDIT.load(sFile);
         source = board;
+
+
+
         //Still using cuboid clipboard as that's the only thing that works apparently
         sizeX = cc.getWidth();
         sizeY = cc.getHeight();
@@ -157,12 +162,32 @@ public class ISchematic {
         return matList;
     }
 
+    public int rotate(Chest chest){
+        org.bukkit.material.Chest chest2 = (org.bukkit.material.Chest) chest.getBlock().getState().getData();
+        String direction = YamlConfiguration.loadConfiguration(new File(main.getDataFolder() + File.separator + "schematics.yml")).getString("Schematics." + sName);
+
+        int rotateValue = PUtils.getRotateValue(PUtils.parseBlockFace(direction), chest2.getFacing());;
+        cc.rotate2D(rotateValue);
+
+
+        sizeX = cc.getSize().getBlockX();
+        sizeY = cc.getSize().getBlockY();
+        sizeZ = cc.getSize().getBlockZ();
+
+
+
+        blockArray = loadBlocks();
+
+        return rotateValue;
+    }
+
     public CuboidClipboard getRegion() {
         return cc;
     }
 
     public BaseBlock[][][] loadBlocks() {
         //If north blockface is null check which blockface isnt null and based on that rotate clipboard so that it isnt null
+        //Reload sizes
         BaseBlock[][][] blocks = new BaseBlock[sizeX][sizeY][sizeZ];
         for (int x = 0; x < sizeX; x++) {
             for (int y = 0; y < sizeY; y++) {

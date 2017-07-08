@@ -1,5 +1,6 @@
 package creeoer.plugins.in_blocks.objects;
 
+import com.sk89q.jnbt.CompoundTag;
 import com.sk89q.worldedit.Vector;
 import com.sk89q.worldedit.blocks.BaseBlock;
 import creeoer.plugins.in_blocks.main.ISchematic;
@@ -61,11 +62,9 @@ public class BuildTask extends BukkitRunnable {
         config = main.getConfig();
 
         ignoredMaterials = new ArrayList<>();
-        for(IgnoredMaterial mat: IgnoredMaterial.values()){
+        for (IgnoredMaterial mat : IgnoredMaterial.values()) {
             ignoredMaterials.add(mat.getMaterial());
         }
-
-
 
 
         Block b = l.clone().add(-1, 0, -1).getBlock();
@@ -97,84 +96,94 @@ public class BuildTask extends BukkitRunnable {
         size = blocks.size();
     }
 
-    public void run(){
+    public void run() {
         if (place < size) {
 
+
+            if (p == null || !p.isOnline()) {
+                main.getBuildManager().saveTask(this);
+                cancel();
+            }
             //For each BaseBlock get the vector of the player and place the corresponding block
 
             Block block = originalBlocks.get(place);
             BaseBlock base = blocks.get(block);
+            CompoundTag nbtData = base != null ? base.getNbtData() : null;
+
+            if (nbtData != null)
+                base.setNbtData(nbtData);
 
 
-                //Disabled by default to make plugin backwards compatible
-                if (config.getBoolean("Options.sound"))
-                    p.playSound(l, Sound.BLOCK_GLASS_STEP, 1, 0);
+            //Disabled by default to make plugin backwards compatible
+            if (config.getBoolean("Options.sound"))
+                p.playSound(l, Sound.BLOCK_GLASS_STEP, 1, 0);
 
-                if (config.getBoolean("Options.survival-mode")) {
+            if (config.getBoolean("Options.survival-mode")) {
 
-                    if (base.getType() == Material.WALL_SIGN.getId())
-                        base.setType(Material.SIGN.getId());
+                ItemStack stack = new ItemStack(base.getType(), 1);
 
-                    if(base.getType() == Material.WOODEN_DOOR.getId())
-                        base.setType(Material.WOOD_DOOR.getId());
+                if (base.getType() == Material.WALL_SIGN.getId())
+                    stack.setType(Material.SIGN);
 
-                    ItemStack stack = new ItemStack(base.getType(), 1);
+                if (base.getType() == Material.WOODEN_DOOR.getId())
+                    stack.setType(Material.WOOD_DOOR);
 
 
-                    if (p == null || !p.isOnline()) {
-                        main.getBuildManager().saveTask(this);
-                        cancel();
+                if (!chest.getInventory().containsAtLeast(stack, 1) && !ignoredMaterials.contains(stack.getType())) {
+
+                    String newName = ChatColor.GREEN + schematic.getName() + ChatColor.RED + " Requires" + stack.getType().toString();
+
+                    if (!chest.getCustomName().equals(newName))
+                        chest.setCustomName(newName);
+
+                    buildFulfilled = false;
+                    if (!wasRun) {
+                        p.sendMessage(ChatColor.RED + "Not enough materials! You have 3 minutes to provide materials before the build cancels..");
+                        wasRun = true;
+                        BukkitTask bukkitTask = new BukkitRunnable() {
+                            @Override
+                            public void run() {
+                                if (!buildFulfilled) {
+                                    clearBuild();
+                                    cancel = true;
+                                    p.sendMessage(ChatColor.RED + "Time has run out, cancelling build..");
+                                }
+                            }
+                        }.runTaskLater(main, 3600L);
                     }
 
-                    if (!chest.getInventory().containsAtLeast(stack, 1) && !ignoredMaterials.contains(stack.getType())) {
+                } else {
+                    buildFulfilled = true;
 
-                        String newName = ChatColor.GREEN + schematic.getName() + ChatColor.RED + " Requires" + stack.getType().toString();
-
-                        if(!chest.getCustomName().equals(newName))
-                            chest.setCustomName(newName);
-
-                        buildFulfilled = false;
-                        if (!wasRun) {
-                            p.sendMessage(ChatColor.RED + Lang.MATERIALS.toString());
-                            wasRun = true;
-                            BukkitTask bukkitTask = new BukkitRunnable() {
-                                @Override
-                                public void run() {
-                                    if (!buildFulfilled) {
-                                        clearBuild();
-                                        cancel = true;
-                                        p.sendMessage(ChatColor.RED + "Time has run out, cancelling build..");
-                                    }
-                                }
-                            }.runTaskLater(main, 3600L);
-                        }
-
-                    } else {
-                        buildFulfilled = true;
-
-                        if(!ignoredMaterials.contains(stack.getType()))
+                    if (!ignoredMaterials.contains(stack.getType()))
                         chest.getInventory().removeItem(stack);
 
-                        chest.setCustomName(ChatColor.GREEN + schematic.getName());
-                        place++;
-                    }
-
-
-                    if (cancel) {
-                        try {
-                            main.getBuildManager().removeTask(this);
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        cancel();
-
-
-                    }
-
-
-                    block.setTypeIdAndData(base.getType(), (byte) base.getData(), false);
+                    chest.setCustomName(ChatColor.GREEN + schematic.getName());
                 }
-        } else {
+
+
+                if (cancel) {
+                    try {
+                        main.getBuildManager().removeTask(this);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    cancel();
+
+
+                }
+
+
+            }
+
+
+            place++;
+            block.setTypeIdAndData(base.getType(), (byte) base.getData(), false);
+
+
+        } else
+
+        {
             p.sendMessage(ChatColor.GREEN + Lang.COMPLETE.toString());
             try {
                 main.getBuildManager().removeTask(this);
@@ -183,11 +192,12 @@ public class BuildTask extends BukkitRunnable {
             }
             this.cancel();
         }
+
     }
 
 
-    public void clearBuild(){
-        for(Block b: originalBlocks){
+    public void clearBuild() {
+        for (Block b : originalBlocks) {
             b.setType(Material.AIR);
         }
     }
@@ -213,10 +223,16 @@ public class BuildTask extends BukkitRunnable {
         return p.getName();
     }
 
-    public void setId(int id){ this.id = id; }
+    public void setId(int id) {
+        this.id = id;
+    }
 
-    public int getId(){ return id; }
+    public int getId() {
+        return id;
+    }
 
-    public Chest getChest(){return chest;}
+    public Chest getChest() {
+        return chest;
+    }
 
 }

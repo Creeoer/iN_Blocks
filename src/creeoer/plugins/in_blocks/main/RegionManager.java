@@ -89,28 +89,15 @@ public class RegionManager {
         yHeight = region.getHeight();
         zLength = region.getLength();
         int cRadius = config.getInt("Options.check-radius");
-        double xx = l.getX();
-        double yy = l.getY();
-        double zz = l.getZ();
-        for(int x = 0; x <= xWidth + cRadius; x++){
-            for(int y = 0; y <= yHeight + cRadius; y++){
-                for(int z = 0; z <= zLength + cRadius; z++){
-                    Location loc1 = new Location(l.getWorld(), xx + x, yy + y, zz + z);
-                    locs.add(loc1);
-                    Location loc2 = new Location(l.getWorld(), xx - x, yy - y, zz - z);
-                    locs.add(loc2);
-                    Location loc3 = new Location(l.getWorld(), xx - x, yy - y, zz + z);
-                    locs.add(loc3);
-                    Location loc4 = new Location(l.getWorld(), xx + x, yy - y, zz + z);
-                    locs.add(loc4);
-                    Location loc5 = new Location(l.getWorld(), xx - x, yy + y, zz - z);
-                    locs.add(loc5);
-                    Location loc6 = new Location(l.getWorld(), xx - x, yy - y, zz + z);
-                    locs.add(loc6);
-                    Location loc7 = new Location(l.getWorld(), xx - x, yy + y, zz + z);
-                    locs.add(loc7);
-                    Location loc8 = new Location(l.getWorld(), xx + x, yy + y, zz - z);
-                    locs.add(loc8);
+        l.add(xWidth, yHeight, zLength);
+        int sX = l.getBlockX();
+        int sY = l.getBlockY();
+        int sZ = l.getBlockZ();
+
+        for(int x = sX;  x <= l.getBlockX() + cRadius; x++){
+            for(int y = sY ; y <= l.getBlockY()  + cRadius; y++){
+                for(int z = sZ; z <= l.getBlockZ() + cRadius; z++){
+                    locs.add(l.clone().add(x,y,z));
                 }
             }
         }

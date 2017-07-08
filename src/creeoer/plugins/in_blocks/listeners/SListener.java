@@ -7,12 +7,15 @@ import creeoer.plugins.in_blocks.main.ISchematic;
 import creeoer.plugins.in_blocks.main.RegionManager;
 import creeoer.plugins.in_blocks.main.SchematicManager;
 import creeoer.plugins.in_blocks.main.iN_Blocks;
+import creeoer.plugins.in_blocks.objects.BuildManager;
+import creeoer.plugins.in_blocks.objects.BuildTask;
 import creeoer.plugins.in_blocks.objects.Lang;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.Chest;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.conversations.*;
@@ -23,6 +26,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.AnvilInventory;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
@@ -49,25 +53,47 @@ public class SListener implements Listener {
     private FileConfiguration config;
     private List<ItemStack> requirements;
     private RegionManager rgManager;
+    private BuildManager buildManager;
 
     public SListener(iN_Blocks instance) {
         main = instance;
         manager = main.getSchematicManager();
         config = YamlConfiguration.loadConfiguration(new File(main.getDataFolder() + File.separator + "config.yml"));
         rgManager = main.getrManager();
-        isDone = false;
+        buildManager = instance.getBuildManager();
     }
 
     @EventHandler
     public void onChestBreak(BlockBreakEvent e){
-
+        if(e.getBlock().getState() instanceof Chest) {
+            Chest chest = (Chest) e.getBlock().getState();
+            for (BuildTask task:buildManager.getAllTasks()){
+                if(chest.equals(task.getChest())) {
+                    e.setCancelled(true);
+                    break;
+                }
+            }
+        }
     }
 
     @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent e){
-
+    public void onPlayerJoin(PlayerJoinEvent e) throws IOException, DataException {
+       if( buildManager.hasTask(e.getPlayer().getName())){
+           buildManager.startTask(e.getPlayer().getName());
+           e.getPlayer().sendMessage(ChatColor.YELLOW + "Your build was resumed!");
+       }
     }
 
+    @EventHandler
+    public void onPlayerLeave(PlayerQuitEvent e){
+        for(BuildTask task: buildManager.getAllTasks()){
+            if(task.getPName().equals(e.getPlayer().getName())){
+                buildManager.saveTask(task);
+                break;
+            }
+        }
+
+    }
 
     @EventHandler
     public void onBlockPlace(BlockPlaceEvent e) throws DataException, IOException, MaxChangedBlocksException, IllegalAccessException, NoSuchFieldException {
@@ -79,7 +105,7 @@ public class SListener implements Listener {
                 if (meta.hasLore() && meta.getLore().get(0).contains("schematic") || meta.hasDisplayName() && meta.getDisplayName().charAt(0) == ChatColor.COLOR_CHAR && meta.getDisplayName().contains("schematic")) {
                     Location l = e.getBlock().getLocation();
 
-                    l.add(1, 0, 1);
+                  l.add(1, 0, 1);
 
 
                     e.setCancelled(true);
@@ -89,11 +115,21 @@ public class SListener implements Listener {
                         return;
                     }
 
+                    if(buildManager.hasTask(e.getPlayer().getName())){
+                        p.sendRawMessage(ChatColor.RED + "You already have a build in progress!");
+                        return;
+                    }
+
                     String[] split;
                     if (!main.getConfig().getBoolean("Options.use-lore")) {
                         split = meta.getDisplayName().split("\\s+");
                     } else {
+                        if(meta.getLore() == null){
+                            Bukkit.getLogger().severe("Lore isn't found in scbematic block");
+                            return;
+                        }
                         split = meta.getLore().get(0).split("\\s+");
+
                     }
 
                     name = ChatColor.stripColor(split[0]);
@@ -164,12 +200,14 @@ public class SListener implements Listener {
                             return;
                         }
                     } catch (Exception ignored) {
+                        ignored.printStackTrace();
                         return;
                     }
 
 
                     requirements = requ;
                     p.updateInventory();
+                    int rotateValue = sch.rotate((Chest) l.clone().add(-1, 0 , -1).getBlock().getState());
 
                     sch.preview(p, l);
 
@@ -185,12 +223,12 @@ public class SListener implements Listener {
 
 
     public Conversation initConvo(final Player p) {
+        isDone = false;
         ConversationFactory fac = new ConversationFactory(main).withFirstPrompt(new ValidatingPrompt() {
             @Override
             public String getPromptText(ConversationContext conversationContext) {
                 return ChatColor.GREEN + Lang.PREVIEW.toString().replace("%n", Integer.toString(config.getInt("Options.preview-time")));
             }
-
             @Override
             protected boolean isInputValid(ConversationContext conversationContext, String s) {
                 return true;
@@ -262,10 +300,18 @@ public class SListener implements Listener {
             for (int i = 0; i < 3; i++) {
                 if (view.getItem(i) != null) {
                     ItemStack item = view.getItem(i);
-                    if (item.hasItemMeta() && item.getItemMeta().hasDisplayName() || item.getItemMeta().hasLore()) {
-                        if (item.getItemMeta().getDisplayName().contains("schematic") || item.getItemMeta().hasLore() && item.getItemMeta().getLore().contains("schematic")) {
-                            e.getWhoClicked().sendMessage(ChatColor.RED + Lang.ANVIL.toString());
-                            e.setCancelled(true);
+                    if (item.hasItemMeta()) {
+                        if (item.getItemMeta().hasDisplayName()) {
+                            if(item.getItemMeta().getDisplayName().contains("schematic")) {
+                                e.getWhoClicked().sendMessage(ChatColor.RED + Lang.ANVIL.toString());
+                                e.setCancelled(true);
+                            }
+                        } else if (item.getItemMeta().hasLore()) {
+                            if(item.getItemMeta().getLore().contains("schematic")) {
+                                e.getWhoClicked().sendMessage(ChatColor.RED + Lang.ANVIL.toString());
+                                e.setCancelled(true);
+                            }
+
                         }
                     }
                 }

@@ -36,11 +36,6 @@ public class iN_Blocks extends JavaPlugin {
 
         PluginManager pm = Bukkit.getPluginManager();
 
-        if (!setupEconomy()) {
-            Bukkit.getLogger().severe("Vault was not found, therfore plugin functionility is not possible");
-            pm.disablePlugin(this);
-            return;
-        }
         if (!getDataFolder().exists()) {
             getDataFolder().mkdirs();
             new File(getDataFolder() + File.separator + "schematics").mkdirs();
@@ -88,6 +83,14 @@ public class iN_Blocks extends JavaPlugin {
         pm.registerEvents(new SListener(this), this);
         pm.registerEvents(new SignListener(this), this);
 
+        if (!setupEconomy() && config.getBoolean("economy-enabled")) {
+            Bukkit.getLogger().severe("Vault was not found, therfore plugin functionility is not possible");
+            pm.disablePlugin(this);
+            return;
+        }
+
+
+
         try {
             buildManager.initTasks();
         } catch (IOException e) {
@@ -100,11 +103,6 @@ public class iN_Blocks extends JavaPlugin {
 
     public void onDisable() {
         //Serealize all ongoing build tasks
-        try {
-            buildManager.saveAllTasks();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
     public boolean setupEconomy() {

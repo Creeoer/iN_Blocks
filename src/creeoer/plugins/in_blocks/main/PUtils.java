@@ -5,36 +5,41 @@ import org.bukkit.entity.Player;
 
 public class PUtils {
 
-	
+	private static final BlockFace[] axis = { BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST };
+	private static final BlockFace[] radial = { BlockFace.NORTH, BlockFace.NORTH_EAST, BlockFace.EAST, BlockFace.SOUTH_EAST, BlockFace.SOUTH, BlockFace.SOUTH_WEST, BlockFace.WEST, BlockFace.NORTH_WEST };
+
+
+
 	// I'm going to be quite surprised if this works
-	public static String getCardinalDirection(Player p) {
-		double rot = (p.getLocation().getYaw() - 90) % 360;
-		if (rot < 0){
-			rot += 360;
-		}
-		if (0 <= rot && rot < 22.5) {
-			return "north";
-		} else if (22.5 <= rot && rot < 67.5) {
-			return "north";
-		} else if (67.5 <= rot && rot < 112.5) {
-			return "east";
-		} else if (112.5 <= rot && rot < 157.5) {
-			return "south";
-		} else if (157.5 <= rot && rot < 202.5) {
-			return "south";
-		} else if (202.5 <= rot && rot < 247.5) {
-			return "south";
-		} else if (247.5 <= rot && rot < 292.5) {
-			return "west";
-		} else if (292.5 <= rot && rot < 337.5) {
-			return "north";
-		} else if (337.5 <= rot && rot < 360.0) {
-			return "north";
-		} else {
-			return "No direction";
-		}
+	public static BlockFace getCardinalDirection(float yaw, boolean useSubCardinalDirections) {
+		if (useSubCardinalDirections)
+			return radial[Math.round(yaw / 45f) & 0x7].getOppositeFace();
+
+		return axis[Math.round(yaw / 90f) & 0x3];
+
+
 	}
 
+
+	public static BlockFace parseBlockFace(String direction){
+		switch(direction){
+			case "NORTH":
+				return BlockFace.NORTH;
+
+			case"WEST":
+				return BlockFace.WEST;
+
+			case "EAST" :
+				return BlockFace.EAST;
+
+			case "SOUTH":
+				return BlockFace.SOUTH;
+
+
+			default:
+				return BlockFace.NORTH;
+		}
+	}
 
 //Credit goes to andrepl
 	public static int getRotateValue(BlockFace from, BlockFace to){

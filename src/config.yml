@@ -31,3 +31,9 @@ Options:
 
   #Enable sound during block-by-block placement DISABLE IF USING 1.8
   sound: false
+
+  #Enable economy
+  economy-enabled: true
+
+  #How long before uncompleted build task expire in minutes
+  expiry-time: 4320

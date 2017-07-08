@@ -21,7 +21,7 @@ public class TownyAdapter implements iChecker{
             Resident r=TownyUniverse.getDataSource().getResident(player.getName());
             if(TownyUniverse.getTownName(loc)==null)
                 return true;
-            if(TownyUniverse.getTownName(loc)!=null&!r.hasTown())
+            if(TownyUniverse.getTownName(loc)!=null && !r.hasTown())
                 return false;
             if(!r.getTown().getName().equals(TownyUniverse.getTownName(loc)))
                 return false;
