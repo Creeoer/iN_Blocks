@@ -79,18 +79,13 @@ public class iN_Blocks extends JavaPlugin {
         config = YamlConfiguration.loadConfiguration(new File(getDataFolder() + File.separator + "config.yml"));
         manager = new SchematicManager(this);
         getCommand("in").setExecutor(new Commands(this));
-        rgManager = new RegionManager(this);
-        pm.registerEvents(new SListener(this), this);
-        pm.registerEvents(new SignListener(this), this);
+
 
         if (!setupEconomy() && config.getBoolean("economy-enabled")) {
             Bukkit.getLogger().severe("Vault was not found, therfore plugin functionility is not possible");
             pm.disablePlugin(this);
             return;
         }
-
-
-
         try {
             buildManager.initTasks();
         } catch (IOException e) {
@@ -99,6 +94,10 @@ public class iN_Blocks extends JavaPlugin {
         } catch (DataException e) {
             e.printStackTrace();
         }
+
+        rgManager = new RegionManager(this);
+        pm.registerEvents(new SListener(this), this);
+        pm.registerEvents(new SignListener(this), this);
     }
 
     public void onDisable() {

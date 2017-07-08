@@ -1,5 +1,6 @@
 package creeoer.plugins.in_blocks.main;
 
+import com.massivecraft.factions.entity.BoardColl;
 import com.sk89q.worldedit.CuboidClipboard;
 import com.sk89q.worldedit.world.DataException;
 import creeoer.plugins.in_blocks.adapter.*;
@@ -41,7 +42,8 @@ public class RegionManager {
                checkers.add(new TownyAdapter());
            }
            else if(plugin.equals("Factions")){
-               checkers.add(new FactionsAdapter());
+                   checkers.add(new FactionsUUIDAdapter());
+
            }
        }
 
@@ -89,14 +91,13 @@ public class RegionManager {
         yHeight = region.getHeight();
         zLength = region.getLength();
         int cRadius = config.getInt("Options.check-radius");
-        l.add(xWidth, yHeight, zLength);
         int sX = l.getBlockX();
         int sY = l.getBlockY();
         int sZ = l.getBlockZ();
 
-        for(int x = sX;  x <= l.getBlockX() + cRadius; x++){
-            for(int y = sY ; y <= l.getBlockY()  + cRadius; y++){
-                for(int z = sZ; z <= l.getBlockZ() + cRadius; z++){
+        for(int x = 0;  x <= l.getBlockX() + xWidth + cRadius; x++){
+            for(int y = 0 ; y <= l.getBlockY()  + + yHeight +  cRadius; y++){
+                for(int z = 0; z <= l.getBlockZ() + zLength + cRadius; z++){
                     locs.add(l.clone().add(x,y,z));
                 }
             }
