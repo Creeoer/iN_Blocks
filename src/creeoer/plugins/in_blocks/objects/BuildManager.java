@@ -1,16 +1,18 @@
 package creeoer.plugins.in_blocks.objects;
 
 import com.sk89q.worldedit.world.DataException;
-import creeoer.plugins.in_blocks.main.ISchematic;
+import creeoer.plugins.in_blocks.main.BuildSchematic;
 import creeoer.plugins.in_blocks.main.iN_Blocks;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.block.Block;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+
 
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Created by black on 6/28/2017.
@@ -23,10 +25,13 @@ public class BuildManager {
     private int maxId;
     private YamlConfiguration currentBuilds;
     private List<Integer> ids;
+    private YamlConfiguration config;
+
 
     public BuildManager(iN_Blocks main) {
         this.main = main;
         buildFile = new File(main.getDataFolder() + File.separator + "currentBuilds.yml");
+        config = YamlConfiguration.loadConfiguration(new File(main.getDataFolder() + File.separator + "config.yml"));
 
         if (!buildFile.exists())
             try {
@@ -42,13 +47,14 @@ public class BuildManager {
         maxId = 0;
     }
 
-    public BuildTask createNewTask(ISchematic schematicName, Location l, String pName) {
+    public void createNewTask(BuildSchematic schematicName, Block chestBlock, String pName) {
+        BuildTask buildTask = new BuildTask(schematicName, chestBlock, pName, main);
+        buildTask.setBuildTaskID(getMaxId() + 1);
 
-        BuildTask task = new BuildTask(schematicName, l, pName, main);
-        task.setId(getMaxId() + 1);
-        tasks.add(task);
-        this.saveTask(task);
-        return task;
+        buildTask.runTaskTimer(main, 40, 20 / config.getInt("Options.blocksPerSecond"));
+        tasks.add(buildTask);
+        this.saveTask(buildTask);
+
     }
 
     public int getMaxId(){
@@ -83,19 +89,12 @@ public class BuildManager {
         if(currentBuilds.getKeys(false) != null || !currentBuilds.getKeys(false).isEmpty()) {
         for (String id : currentBuilds.getKeys(false)) {
             long systemTime = currentBuilds.getLong(id + ".startTime");
-            if(systemTime * 10000 > System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(main.getConfig().getInt("Options.exp-time"))){
+            //1st minute, 7min - 2 minutes
+            if(((systemTime/1000) + (main.getConfig().getInt("Options.expiry-time") * 60)) - (System.currentTimeMillis()/1000) <= 0){
                 currentBuilds.set(id, null);
                 currentBuilds.save(buildFile);
                 main.getLogger().info("Removed task " + id + " as it expired");
             }
-            /*
-            BuildTask task = new BuildTask(new ISchematic(currentBuilds.getString(id + ".name"), main), (Location) currentBuilds.get(id + ".location"),
-                    currentBuilds.getString(id + ".player"), main);
-            task.setPlace(currentBuilds.getInt(id + ".place"));
-            task.runTaskTimer(main, 0, 20 / main.getConfig().getInt("Options.blocksPerSecond"));
-            task.setId(Integer.parseInt(id));
-            tasks.add(task);
-            */
             ids.add(Integer.parseInt(id));
 
          }
@@ -122,53 +121,56 @@ public class BuildManager {
 public BuildTask startTask(String pName) throws IOException, DataException{
         for(String id: currentBuilds.getKeys(false)){
             if(currentBuilds.get(id + ".player").equals(pName)) {
-                BuildTask task = new BuildTask(new ISchematic(currentBuilds.getString(id + ".name"), main), (Location) currentBuilds.get(id + ".location"),
+
+                BuildTask task = new BuildTask(new BuildSchematic(currentBuilds.getString(id + ".name"), main), getChestFromLocation(( Location) currentBuilds.get(id + ".location")),
                         currentBuilds.getString(id + ".player"), main);
                 task.setPlace(currentBuilds.getInt(id + ".place"));
-                task.setId(Integer.parseInt(id));
-                tasks.add(task);
+                task.setBuildTaskID(Integer.parseInt(id));
                 task.runTaskTimer(main, 0, 20 / main.getConfig().getInt("Options.blocksPerSecond"));
+                tasks.add(task);
                 return task;
             }
         }
         return null;
 }
 
-    public void removeTask(BuildTask task) throws IOException {
+    public void removeTask(BuildTask task){
         tasks.remove(task);
-        Bukkit.broadcastMessage(Integer.toString(task.getId()));
+        task.cancel();
         if(currentBuilds.getKeys(false) != null || !currentBuilds.getKeys(false).isEmpty()) {
-            if(currentBuilds.getKeys(false).contains(Integer.toString(task.getId()))){
-                currentBuilds.set(Integer.toString(task.getId()), null);
-                currentBuilds.save(buildFile);
+            if(currentBuilds.getKeys(false).contains(Integer.toString(task.getBuildTaskID()))){
+                currentBuilds.set(Integer.toString(task.getBuildTaskID()), null);
+                try {
+                    currentBuilds.save(buildFile);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
         }
+    }
+
+    private Block getChestFromLocation(Location loc) {
+        loc.add(-1, 0, -1);
+        return loc.getBlock();
     }
 
     public Set<BuildTask> getAllTasks() {
         return tasks;
     }
 
-
-    public void saveAllTasks() throws IOException {
-        for (BuildTask task : tasks) {
-            //Serealize schematic name, location, player name
-            currentBuilds.set(task.getId() + ".name", task.getSchematic().getName());
-            currentBuilds.set(task.getId() + ".location", task.getLocation());
-            currentBuilds.set(task.getId() + ".player", task.getPName());
-            currentBuilds.set(task.getId() + ".place", task.getPlace());
+    public void saveAllTasks(){
+        for(BuildTask task: getAllTasks()){
+            saveTask(task);
         }
-
-        currentBuilds.save(buildFile);
-
     }
 
+
     public void saveTask(BuildTask task){
-        currentBuilds.set(task.getId() + ".name", task.getSchematic().getName());
-        currentBuilds.set(task.getId() + ".location", task.getLocation());
-        currentBuilds.set(task.getId() + ".player", task.getPName());
-        currentBuilds.set(task.getId() + ".place", task.getPlace());
-        currentBuilds.set(task.getId() + ".startTime", System.currentTimeMillis() /10000);
+        currentBuilds.set(task.getBuildTaskID() + ".name", task.getSchematic().getName());
+        currentBuilds.set(task.getBuildTaskID() + ".location", task.getLocation());
+        currentBuilds.set(task.getBuildTaskID() + ".player", task.getOwnerName());
+        currentBuilds.set(task.getBuildTaskID() + ".place", task.getPlace());
+        currentBuilds.set(task.getBuildTaskID() + ".startTime", System.currentTimeMillis());
 
 
         try {

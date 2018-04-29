@@ -2,7 +2,7 @@ package creeoer.plugins.in_blocks.listeners;
 
 import com.sk89q.worldedit.world.DataException;
 import creeoer.plugins.in_blocks.builders.BlockBuilder;
-import creeoer.plugins.in_blocks.main.ISchematic;
+import creeoer.plugins.in_blocks.main.BuildSchematic;
 import creeoer.plugins.in_blocks.main.SchematicManager;
 import creeoer.plugins.in_blocks.main.iN_Blocks;
 import creeoer.plugins.in_blocks.objects.Lang;
@@ -91,12 +91,10 @@ public class SignListener implements Listener {
                         p.sendMessage(ChatColor.RED + Lang.AFFORD.toString());
                         return;
                     }
-                    ISchematic schematic = new ISchematic(sign.getLine(2), main);
+                    BuildSchematic schematic = new BuildSchematic(sign.getLine(2), main);
 
                     BlockBuilder builder = new BlockBuilder(schematic.getName(), main);
 
-                    if (main.getConfig().getBoolean("Options.survival-mode"))
-                        builder.setRequirements(schematic.getBlockRequirements());
 
                     builder.setAmount(1);
                     p.getInventory().addItem(builder.build());

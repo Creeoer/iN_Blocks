@@ -11,8 +11,8 @@ import org.bukkit.entity.Player;
 /**
  * Created by CREEOER on 11/26/2016.
  */
-public class FactionsAdapter implements iChecker {
-    public FactionsAdapter() {
+public class FactionsChecker implements iChecker {
+    public FactionsChecker() {
 
     }
 

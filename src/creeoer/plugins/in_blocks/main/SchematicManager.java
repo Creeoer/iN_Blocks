@@ -5,6 +5,9 @@ import com.sk89q.worldedit.extent.clipboard.Clipboard;
 import com.sk89q.worldedit.schematic.SchematicFormat;
 import com.sk89q.worldedit.session.ClipboardHolder;
 import com.sk89q.worldedit.world.DataException;
+import creeoer.plugins.in_blocks.objects.Lang;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -20,7 +23,7 @@ public class SchematicManager {
     File cFile = null;
     File dir = null;
     FileConfiguration config = null;
-    FileConfiguration sFile = null;
+    FileConfiguration schematicsFile = null;
     List<String> permSchematics = null;
 
     protected SchematicManager(iN_Blocks instance) {
@@ -28,7 +31,7 @@ public class SchematicManager {
         cFile = new File(main.getDataFolder() + File.separator + "schematics.yml");
         permSchematics = new ArrayList<>();
         dir = new File(main.getDataFolder() + File.separator + "schematics");
-        sFile = YamlConfiguration.loadConfiguration(cFile);
+        schematicsFile = YamlConfiguration.loadConfiguration(cFile);
         config = YamlConfiguration.loadConfiguration(new File(main.getDataFolder() + File.separator + "config.yml"));
 
         String perm = config.getString("Options.permissions");
@@ -48,12 +51,23 @@ public class SchematicManager {
     }
 
 
-    public void createSchematic(LocalPlayer p, String sName, String direction) throws IOException, DataException, EmptyClipboardException {
+    public void createSchematic(LocalPlayer p, String sName, String direction)  {
         File out = new File(main.getDataFolder() + File.separator + "schematics" + File.separator + sName + ".schematic");
-        out.createNewFile();
+        try {
+            out.createNewFile();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         LocalSession session = WorldEdit.getInstance().getSessionManager().get(p);
-        ClipboardHolder holder = session.getClipboard();
+
+        ClipboardHolder holder = null;
+        try {
+            holder = session.getClipboard();
+        } catch (EmptyClipboardException e) {
+            Bukkit.getPlayer(p.getName()).sendMessage(ChatColor.RED + Lang.EMPTY_CLIPBOARD.toString());
+        }
+
         Clipboard board = holder.getClipboard();
         EditSession es = session.createEditSession(p);
 
@@ -62,37 +76,38 @@ public class SchematicManager {
         Vector max = board.getMaximumPoint();
         es.enableQueue();
 
-        //Load CuboidClipboard selection from board
         CuboidClipboard cc = new CuboidClipboard(max.subtract(min).add(new Vector(1, 1, 1)), min);
         cc.copy(es);
-        SchematicFormat.MCEDIT.save(cc, out);
-
-        //Not sure why this doesnt work as expected...
-/*
-            ClipboardHolder holder = session.getClipboard();
-            Clipboard board = holder.getClipboard();
-            Transform transform = holder.getTransform();
-            ClipboardFormat format = ClipboardFormat.findByAlias("mce");
-            BufferedOutputStream output = new BufferedOutputStream(new FileOutputStream(out));
-            Clipboard board = session.getClipboard().getClipboard();
-            ClipboardWriter writer = format.getWriter(output);
-            writer.write(board, session.getClipboard().getWorldData());
-            Bukkit.broadcastMessage("whaddup");
-            */
 
 
-        sFile.set("Schematics." + sName, direction.toUpperCase());
-        sFile.save(cFile);
+        schematicsFile.set("Schematics." + sName, direction.toUpperCase());
+
+        try {
+            SchematicFormat.MCEDIT.save(cc, out);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (com.sk89q.worldedit.data.DataException e) {
+            e.printStackTrace();
+        }
+
+
+        try {
+            schematicsFile.save(cFile);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
+
+
 
     public void deleteSchematic(String sName) throws IOException {
         if (dir.listFiles().length == 0) return;
-
         for (File f : dir.listFiles()) {
             if (f.getName().replace(".schematic", "").equals(sName)) {
                 f.delete();
-                sFile.set("Schematics." + sName, null);
-                sFile.save(cFile);
+                schematicsFile.set("Schematics." + sName, null);
+                schematicsFile.save(cFile);
                 break;
             }
         }
@@ -111,10 +126,10 @@ public class SchematicManager {
         return false;
     }
 
-    public ISchematic getSchematic(String sName) {
-        ISchematic sch = null;
+    public BuildSchematic getSchematic(String sName) {
+        BuildSchematic sch = null;
         try {
-            sch = new ISchematic(sName, main);
+            sch = new BuildSchematic(sName, main);
             return sch;
         } catch (Exception e) {
             e.printStackTrace();
@@ -126,6 +141,10 @@ public class SchematicManager {
     public boolean hasPermission(String sName) {
         if (permSchematics.contains(sName)) return true;
         return false;
+    }
+
+    public YamlConfiguration getSchematicsFile(){
+        return (YamlConfiguration) schematicsFile;
     }
 
 }

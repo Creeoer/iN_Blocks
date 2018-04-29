@@ -1,6 +1,6 @@
 package creeoer.plugins.in_blocks.events;
 
-import creeoer.plugins.in_blocks.main.ISchematic;
+import creeoer.plugins.in_blocks.main.BuildSchematic;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -17,9 +17,9 @@ public class iNPlaceEvent extends Event implements Cancellable {
     private boolean cancelled;
     private Player placer;
     private Location loc;
-    private ISchematic schematic;
+    private BuildSchematic schematic;
 
-    public iNPlaceEvent(String n, Player p, Location l, Block b, ISchematic sch) {
+    public iNPlaceEvent(String n, Player p, Location l, Block b, BuildSchematic sch) {
         name = n;
         placer = p;
         loc = l;
@@ -45,7 +45,7 @@ public class iNPlaceEvent extends Event implements Cancellable {
         return name;
     }
 
-    public ISchematic getSchematic() {
+    public BuildSchematic getSchematic() {
         return schematic;
     }
 

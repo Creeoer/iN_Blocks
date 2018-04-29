@@ -11,10 +11,7 @@ Options:
 
   #Size of the radius to be checked around the schematic
   #during placement
-  check-radius: 15
-
-  #If enabled schematics will be placed gradually
-  block-by-block: true
+  check-radius: 5
 
   #If block-by-block is enabled this designates the
   #speed per second
@@ -27,7 +24,7 @@ Options:
   use-lore: false
 
   #Should resources be taken into account?
-  survival-mode: false
+  survival-mode: true
 
   #Enable sound during block-by-block placement DISABLE IF USING 1.8
   sound: false
@@ -36,4 +33,4 @@ Options:
   economy-enabled: true
 
   #How long before uncompleted build task expire in minutes
-  expiry-time: 4320
+  expiry-time: 1200

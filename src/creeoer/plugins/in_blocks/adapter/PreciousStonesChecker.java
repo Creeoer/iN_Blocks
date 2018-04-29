@@ -7,11 +7,11 @@ import org.bukkit.entity.Player;
 /**
  * Created by CREEOER on 11/26/2016.
  */
-public class PsAdapter implements iChecker{
+public class PreciousStonesChecker implements iChecker{
 
 
 
-    public PsAdapter(){
+    public PreciousStonesChecker(){
 
     }
 

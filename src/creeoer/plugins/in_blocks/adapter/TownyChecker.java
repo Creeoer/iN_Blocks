@@ -8,9 +8,9 @@ import org.bukkit.entity.Player;
 /**
  * Created by CREEOER on 11/26/2016.
  */
-public class TownyAdapter implements iChecker{
+public class TownyChecker implements iChecker{
 
-    public TownyAdapter(){
+    public TownyChecker(){
 
     }
 

@@ -8,9 +8,9 @@ import org.bukkit.entity.Player;
 /**
  * Created by CREEOER on 11/26/2016.
  */
-public class WorldGuardAdapter implements iChecker{
+public class WorldGuardChecker implements iChecker{
 
-    public WorldGuardAdapter(){
+    public WorldGuardChecker(){
 
     }
 

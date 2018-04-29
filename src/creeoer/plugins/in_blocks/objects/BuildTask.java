@@ -2,18 +2,16 @@ package creeoer.plugins.in_blocks.objects;
 
 import com.sk89q.worldedit.Vector;
 import com.sk89q.worldedit.blocks.BaseBlock;
-import creeoer.plugins.in_blocks.main.ISchematic;
+import creeoer.plugins.in_blocks.main.BuildSchematic;
 import creeoer.plugins.in_blocks.main.iN_Blocks;
 import org.bukkit.*;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.io.IOException;
 import java.util.*;
@@ -23,71 +21,64 @@ import java.util.*;
  */
 public class BuildTask extends BukkitRunnable {
 
-    private ISchematic schematic;
+    private BuildSchematic schematic;
     private int place, sizeX, sizeY, sizeZ;
     private BaseBlock[][][] blockArray;
-    private Player p;
+    private Player player;
     private FileConfiguration config;
-    private Location l;
+
     private iN_Blocks main;
-    private int id;
-    private Location offset;
-    private Chest chest;
+    private int buildTaskID;
+
+    private BuildChest buildChest;
+    private Location placementLocation;
     private List<Block> originalBlocks;
-    private boolean wasRun, buildFulfilled, cancel;
-    private List<Material> ignoredMaterials;
+    private HashMap<Block, Material> originalBlockMaterials;
+
     int size;
+    private boolean isLatest;
     HashMap<Block, BaseBlock> blocks;
 
-    public BuildTask(ISchematic schematic, Location l, String pName, iN_Blocks instance) {
+    public BuildTask(BuildSchematic schematic, Block chestBlock, String pName, iN_Blocks instance) {
+        isLatest = instance.is112();
         this.schematic = schematic;
         sizeX = schematic.sizeX;
         sizeY = schematic.sizeY;
         sizeZ = schematic.sizeZ;
 
-        blockArray = new BaseBlock[sizeX][sizeY][sizeZ];
-        for (int x = 0; x < sizeX; x++) {
-            for (int y = 0; y < sizeY; y++) {
-                for (int z = 0; z < sizeZ; z++) {
-                    blockArray[x][y][z] = schematic.getRegion().getBlock(new Vector(x, y, z));
-                }
-            }
-        }
+        Chest chest = null;
 
-        p = Bukkit.getServer().getPlayer(pName);
-        this.l = l;
+        if(chestBlock.getType() != Material.CHEST)
+        chestBlock.getLocation().getBlock().setType(Material.CHEST);
+
+
+        chest = (Chest) chestBlock.getState();
+        placementLocation = chest.getLocation().clone().add(1, 0 , 1);
+
+        blockArray = schematic.loadBlocks();
+
+        player = Bukkit.getServer().getPlayer(pName);
         main = instance;
-        id = 0;
+        buildTaskID = 0;
         config = main.getConfig();
 
-        ignoredMaterials = new ArrayList<>();
-        for(IgnoredMaterial mat: IgnoredMaterial.values()){
-            ignoredMaterials.add(mat.getMaterial());
-        }
+        buildChest = new BuildChest(chest, getBuildTaskID());
 
-
-
-
-        Block b = l.clone().add(-1, 0, -1).getBlock();
-        b.setType(Material.CHEST);
-        chest = (Chest) b.getState();
-        chest.setCustomName(ChatColor.GREEN + schematic.getName());
-
-
-        wasRun = false;
-        cancel = false;
-        buildFulfilled = true;
+        buildChest.setName(ChatColor.GREEN + schematic.getName());
+        buildChest.update();
 
 
         blocks = new HashMap<>();
         originalBlocks = new ArrayList<>();
+        originalBlockMaterials = new HashMap<>();
 
         //Map real-world block equivalents to base blocks
         for (int x = 0; x < sizeX; x++) {
             for (int y = 0; y < sizeY; y++) {
                 for (int z = 0; z < sizeZ; z++) {
-                    blocks.put(l.clone().add(x, y, z).getBlock(), blockArray[x][y][z]);
-                    originalBlocks.add(l.clone().add(x, y, z).getBlock());
+                    blocks.put(placementLocation.clone().add(x, y, z).getBlock(), blockArray[x][y][z]);
+                    originalBlocks.add(placementLocation.clone().add(x, y, z).getBlock());
+                    originalBlockMaterials.put(placementLocation.clone().add(x, y, z).getBlock(), placementLocation.clone().add(x, y, z).getBlock().getType());
                 }
             }
         }
@@ -100,6 +91,11 @@ public class BuildTask extends BukkitRunnable {
     public void run(){
         if (place < size) {
 
+            if (player == null || !player.isOnline()) {
+                main.getBuildManager().saveTask(this);
+                cancel();
+            }
+
             //For each BaseBlock get the vector of the player and place the corresponding block
 
             Block block = originalBlocks.get(place);
@@ -108,89 +104,81 @@ public class BuildTask extends BukkitRunnable {
 
                 //Disabled by default to make plugin backwards compatible
                 if (config.getBoolean("Options.sound"))
-                    p.playSound(l, Sound.BLOCK_GLASS_STEP, 1, 0);
-
-                if (config.getBoolean("Options.survival-mode")) {
-
-                    if (base.getType() == Material.WALL_SIGN.getId())
-                        base.setType(Material.SIGN.getId());
-
-                    if(base.getType() == Material.WOODEN_DOOR.getId())
-                        base.setType(Material.WOOD_DOOR.getId());
-
-                    ItemStack stack = new ItemStack(base.getType(), 1);
+                    player.playSound(placementLocation, Sound.BLOCK_GLASS_STEP, 1, 0);
 
 
-                    if (p == null || !p.isOnline()) {
-                        main.getBuildManager().saveTask(this);
-                        cancel();
+
+
+            if (config.getBoolean("Options.survival-mode")) {
+
+                if (base.getType() == Material.WALL_SIGN.getId())
+                    base.setType(Material.SIGN.getId());
+
+                if (base.getType() == Material.WOODEN_DOOR.getId())
+                    base.setType(Material.WOOD_DOOR.getId());
+
+
+                ItemStack stack = new ItemStack(base.getType(), 1);
+                boolean isIgnoredMaterial = IgnoredMaterial.isIgnoredMaterial(stack.getType());
+
+                if (!buildChest.containsRequirement(stack) && !isIgnoredMaterial) {
+                    String newName = ChatColor.GREEN + schematic.getName() + ChatColor.RED + " Requires: " + stack.getType().toString();
+                    if(!buildChest.getName().equals(newName)) {
+                        buildChest.setName(newName);
+                        buildChest.update();
                     }
-
-                    if (!chest.getInventory().containsAtLeast(stack, 1) && !ignoredMaterials.contains(stack.getType())) {
-
-                        String newName = ChatColor.GREEN + schematic.getName() + ChatColor.RED + " Requires" + stack.getType().toString();
-
-                        if(!chest.getCustomName().equals(newName))
-                            chest.setCustomName(newName);
-
-                        buildFulfilled = false;
-                        if (!wasRun) {
-                            p.sendMessage(ChatColor.RED + Lang.MATERIALS.toString());
-                            wasRun = true;
-                            BukkitTask bukkitTask = new BukkitRunnable() {
-                                @Override
-                                public void run() {
-                                    if (!buildFulfilled) {
-                                        clearBuild();
-                                        cancel = true;
-                                        p.sendMessage(ChatColor.RED + "Time has run out, cancelling build..");
-                                    }
-                                }
-                            }.runTaskLater(main, 3600L);
-                        }
-
-                    } else {
-                        buildFulfilled = true;
-
-                        if(!ignoredMaterials.contains(stack.getType()))
-                        chest.getInventory().removeItem(stack);
-
-                        chest.setCustomName(ChatColor.GREEN + schematic.getName());
+                } else if (isIgnoredMaterial){
+                        buildChest.setName(ChatColor.GREEN + schematic.getName());
+                        buildChest.update();
                         place++;
-                    }
-
-
-                    if (cancel) {
-                        try {
-                            main.getBuildManager().removeTask(this);
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        cancel();
-
-
-                    }
-
-
+                        block.setTypeIdAndData(base.getType(), (byte) base.getData(), false);
+                } else {
+                    buildChest.setName(ChatColor.GREEN + schematic.getName());
+                    buildChest.removeItemStack(stack);
+                    buildChest.update();
+                    place++;
                     block.setTypeIdAndData(base.getType(), (byte) base.getData(), false);
                 }
-        } else {
-            p.sendMessage(ChatColor.GREEN + Lang.COMPLETE.toString());
-            try {
-                main.getBuildManager().removeTask(this);
-            } catch (IOException e) {
-                e.printStackTrace();
+
+
+            } else {
+                place++;
+                block.setTypeIdAndData(base.getType(), (byte) base.getData(), false);
             }
+        } else {
+            player.sendMessage(ChatColor.GREEN + Lang.COMPLETE.toString());
+            main.getBuildManager().removeTask(this);
+
             this.cancel();
         }
     }
 
 
+    public boolean isPlayerTaskOwner(String playerName){
+        return playerName.equals(player.getName());
+    }
+
     public void clearBuild(){
         for(Block b: originalBlocks){
-            b.setType(Material.AIR);
+            Material mat = originalBlockMaterials.get(b);
+            b.getLocation().getBlock().setType(mat);
         }
     }
+
+
+    public List<ItemStack> getCurrentBlocksInBuild(){
+        //create a for loop ending at place and get all of the blocks in the region
+        //use original blocks list and return all items on the floor.
+        List<ItemStack> currentItemStacks = new ArrayList<>();
+        for(Block block: originalBlocks){
+            Block currentBlock = block.getLocation().getBlock();
+            ItemStack stack = new ItemStack(currentBlock.getType(), 1);
+            currentItemStacks.add(stack);
+        }
+        return currentItemStacks;
+    }
+
+
 
 
     public void setPlace(int place) {
@@ -201,22 +189,22 @@ public class BuildTask extends BukkitRunnable {
         return place;
     }
 
-    public ISchematic getSchematic() {
+    public BuildSchematic getSchematic() {
         return schematic;
     }
 
     public Location getLocation() {
-        return l;
+        return placementLocation;
     }
 
-    public String getPName() {
-        return p.getName();
+    public String getOwnerName() {
+        return player.getName();
     }
 
-    public void setId(int id){ this.id = id; }
+    public void setBuildTaskID(int buildTaskID){ this.buildTaskID = buildTaskID; }
 
-    public int getId(){ return id; }
+    public int getBuildTaskID(){ return buildTaskID; }
 
-    public Chest getChest(){return chest;}
+    public BuildChest getBuildChest(){return buildChest; }
 
 }

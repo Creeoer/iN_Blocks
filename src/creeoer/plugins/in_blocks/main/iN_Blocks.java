@@ -2,7 +2,8 @@ package creeoer.plugins.in_blocks.main;
 
 import com.sk89q.worldedit.bukkit.WorldEditPlugin;
 import com.sk89q.worldedit.world.DataException;
-import creeoer.plugins.in_blocks.listeners.SListener;
+import creeoer.plugins.in_blocks.listeners.BlockListener;
+import creeoer.plugins.in_blocks.listeners.PlayerActionsListener;
 import creeoer.plugins.in_blocks.listeners.SignListener;
 import creeoer.plugins.in_blocks.objects.BuildManager;
 import creeoer.plugins.in_blocks.objects.Lang;
@@ -30,49 +31,26 @@ public class iN_Blocks extends JavaPlugin {
     private FileConfiguration lang;
     private BuildManager buildManager;
 
-    @SuppressWarnings(value = "all")
+
     public void onEnable() {
-
-
         PluginManager pm = Bukkit.getPluginManager();
 
-        if (!getDataFolder().exists()) {
-            getDataFolder().mkdirs();
-            new File(getDataFolder() + File.separator + "schematics").mkdirs();
-            try {
-                new File(getDataFolder() + File.separator + "schematics.yml").createNewFile();
-                saveDefaultConfig();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+        if (!getDataFolder().exists())
+            createPluginFolders();
 
-        //Init language file
         lang_file = new File(getDataFolder() + File.separator + "lang.yml");
+
         if (lang_file == null || !lang_file.exists()) {
-            try {
-                lang_file.createNewFile();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            lang = YamlConfiguration.loadConfiguration(lang_file);
-            for (Lang value : Lang.values()) {
-                lang.set(value.getPath(), value.getDefault());
-            }
-            try {
-                lang.save(lang_file);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            createLangFile();
+            loadLangFileDefaults();
         }
-        if (lang == null)
-            lang = YamlConfiguration.loadConfiguration(lang_file);
 
+        lang = YamlConfiguration.loadConfiguration(lang_file);
         Lang.setFile(lang);
-
 
         if (!new File(getDataFolder() + File.separator + "config.yml").exists())
             saveDefaultConfig();
+
 
         buildManager = new BuildManager(this);
         initDependencies();
@@ -82,10 +60,12 @@ public class iN_Blocks extends JavaPlugin {
 
 
         if (!setupEconomy() && config.getBoolean("economy-enabled")) {
-            Bukkit.getLogger().severe("Vault was not found, therfore plugin functionility is not possible");
+            Bukkit.getLogger().severe("Vault was not found, therefore plugin functionality is not possible");
             pm.disablePlugin(this);
             return;
         }
+
+
         try {
             buildManager.initTasks();
         } catch (IOException e) {
@@ -96,12 +76,14 @@ public class iN_Blocks extends JavaPlugin {
         }
 
         rgManager = new RegionManager(this);
-        pm.registerEvents(new SListener(this), this);
+        pm.registerEvents(new BlockListener(this), this);
         pm.registerEvents(new SignListener(this), this);
+        pm.registerEvents(new PlayerActionsListener(this), this);
     }
 
     public void onDisable() {
-        //Serealize all ongoing build tasks
+        buildManager.saveAllTasks();
+        getLogger().info("Saving all current build tasks!");
     }
 
     public boolean setupEconomy() {
@@ -117,6 +99,40 @@ public class iN_Blocks extends JavaPlugin {
     }
 
 
+
+    public void createPluginFolders(){
+        getDataFolder().mkdirs();
+        new File(getDataFolder() + File.separator + "schematics").mkdirs();
+        try {
+            new File(getDataFolder() + File.separator + "schematics.yml").createNewFile();
+            saveDefaultConfig();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    public void createLangFile(){
+        try {
+            lang_file.createNewFile();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        lang = YamlConfiguration.loadConfiguration(lang_file);
+    }
+
+    public void loadLangFileDefaults(){
+        for (Lang value : Lang.values()) {
+            lang.set(value.getPath(), value.getDefault());
+        }
+        try {
+            lang.save(lang_file);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     public SchematicManager getSchematicManager() {
         return manager;
     }
@@ -124,7 +140,7 @@ public class iN_Blocks extends JavaPlugin {
     private void initDependencies() {
         List<String> depends = java.util.Arrays.asList("WorldGuard", "PreciousStones",
                 "Districts", "Factions", "Towny",
-                "GriefPrevention");
+                "GriefPrevention", "RedProtect");
         dependencies = new HashSet<>();
 
         for (Plugin p : Bukkit.getPluginManager().getPlugins()) {
@@ -149,6 +165,14 @@ public class iN_Blocks extends JavaPlugin {
     public Economy getEcon() {
         return econ;
     }
+
+    public boolean is112(){
+        if(Bukkit.getVersion().contains("1.12"))
+            return true;
+
+        return false;
+    }
+
 
     @Override
     public FileConfiguration getConfig() {

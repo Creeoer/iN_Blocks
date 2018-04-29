@@ -2,13 +2,11 @@ package creeoer.plugins.in_blocks.objects;
 
 import org.bukkit.Material;
 
-/**
- * Created by Frank on 7/6/2017.
- */
+
 public enum IgnoredMaterial {
 
 
-    AIR(Material.AIR), GRASS (Material.LONG_GRASS), TALLGRASS(Material.DOUBLE_PLANT);
+    AIR(Material.AIR), GRASS (Material.LONG_GRASS), TALL_GRASS(Material.DOUBLE_PLANT), LAVA(Material.STATIONARY_LAVA), GRASS_BLOCK(Material.GRASS), ;
 
 
 
@@ -26,5 +24,15 @@ public enum IgnoredMaterial {
 
     public Material getMaterial(){
         return mat;
+    }
+
+    public static boolean isIgnoredMaterial(Material material){
+        for(IgnoredMaterial ignoredMaterials: values()) {
+            if(material.equals(ignoredMaterials.getMaterial())) {
+                return true;
+            }
+        }
+        return false;
+
     }
 }

@@ -8,7 +8,7 @@ import org.bukkit.entity.Player;
 /**
  * Created by black on 7/8/2017.
  */
-public class FactionsUUIDAdapter implements iChecker {
+public class FactionsUUIDChecker implements iChecker {
     @Override
     public boolean isValidPlacement(Location l, Player p) {
 
@@ -23,13 +23,11 @@ public class FactionsUUIDAdapter implements iChecker {
             return false;
 
         if(Board.getInstance().getFactionAt(fLoc).isWilderness()) {
-            Bukkit.broadcastMessage("widrness");
             return true;
         }
 
 
         if(fPlayer.getFaction() == fac) {
-            Bukkit.broadcastMessage("yuo");
             return true;
         }
 
