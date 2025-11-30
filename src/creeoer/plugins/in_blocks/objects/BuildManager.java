@@ -1,183 +1,296 @@
 package creeoer.plugins.in_blocks.objects;
 
-import com.sk89q.worldedit.world.DataException;
 import creeoer.plugins.in_blocks.main.BuildSchematic;
 import creeoer.plugins.in_blocks.main.iN_Blocks;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.logging.Level;
 
 /**
- * Created by black on 6/28/2017.
+ * Manages all active build tasks for the plugin.
+ * Handles task creation, persistence, and lifecycle management.
+ *
+ * <p>Build tasks are persisted to currentBuilds.yml to allow resumption
+ * after server restarts or player disconnections.</p>
+ *
+ * @author Creeoer
+ * @version 2.0.0
  */
 public class BuildManager {
-    //Manages all build tasks & creates or deletes themc
-    private Set<BuildTask> tasks;
-    private iN_Blocks main;
-    private File buildFile;
-    private int maxId;
-    private YamlConfiguration currentBuilds;
-    private List<Integer> ids;
-    private YamlConfiguration config;
 
+    private final iN_Blocks plugin;
+    private final Set<BuildTask> activeTasks;
+    private final File buildsFile;
+    private YamlConfiguration buildsConfig;
 
-    public BuildManager(iN_Blocks main) {
-        this.main = main;
-        buildFile = new File(main.getDataFolder() + File.separator + "currentBuilds.yml");
-        config = YamlConfiguration.loadConfiguration(new File(main.getDataFolder() + File.separator + "config.yml"));
+    /**
+     * Creates a new BuildManager.
+     *
+     * @param plugin The main plugin instance
+     */
+    public BuildManager(iN_Blocks plugin) {
+        this.plugin = plugin;
+        this.activeTasks = new HashSet<>();
+        this.buildsFile = new File(plugin.getDataFolder(), "currentBuilds.yml");
 
-        if (!buildFile.exists())
+        initializeBuildsFile();
+        this.buildsConfig = YamlConfiguration.loadConfiguration(buildsFile);
+    }
+
+    /**
+     * Initializes the builds file if it doesn't exist.
+     */
+    private void initializeBuildsFile() {
+        if (!buildsFile.exists()) {
             try {
-                buildFile.createNewFile();
+                buildsFile.createNewFile();
             } catch (IOException e) {
-                e.printStackTrace();
+                plugin.getLogger().log(Level.SEVERE, "Failed to create currentBuilds.yml", e);
             }
-
-
-        tasks = new HashSet<>();
-        ids = new ArrayList<>();
-        currentBuilds = YamlConfiguration.loadConfiguration(buildFile);
-        maxId = 0;
+        }
     }
 
-    public void createNewTask(BuildSchematic schematicName, Block chestBlock, String pName) {
-        BuildTask buildTask = new BuildTask(schematicName, chestBlock, pName, main);
-        buildTask.setBuildTaskID(getMaxId() + 1);
+    /**
+     * Creates and starts a new build task.
+     *
+     * @param schematic The schematic to build
+     * @param chestBlock The chest block for material storage
+     * @param playerName The owner's name
+     */
+    public void createNewTask(BuildSchematic schematic, Block chestBlock, String playerName) {
+        BuildTask task = new BuildTask(schematic, chestBlock, playerName, plugin);
+        task.setBuildTaskID(getNextTaskId());
 
-        buildTask.runTaskTimer(main, 40, 20 / config.getInt("Options.blocksPerSecond"));
-        tasks.add(buildTask);
-        this.saveTask(buildTask);
+        // Calculate tick interval based on blocks per second
+        int blocksPerSecond = plugin.getConfig().getInt("Options.blocksPerSecond", 7);
+        long tickInterval = Math.max(1, 20 / blocksPerSecond);
 
+        task.runTaskTimer(plugin, 40, tickInterval);
+        activeTasks.add(task);
+        saveTask(task);
     }
 
-    public int getMaxId(){
-        List<Integer> allIds = new ArrayList<>();
-        if(currentBuilds.getKeys(false) != null || !currentBuilds.getKeys(false).isEmpty()) {
-            for (String id : currentBuilds.getKeys(false)) {
-                allIds.add(Integer.parseInt(id));
+    /**
+     * Gets the next available task ID.
+     *
+     * @return The next unique task ID
+     */
+    private int getNextTaskId() {
+        Set<String> keys = buildsConfig.getKeys(false);
+        if (keys == null || keys.isEmpty()) {
+            return 1;
+        }
+
+        List<Integer> ids = new ArrayList<>();
+        for (String key : keys) {
+            try {
+                ids.add(Integer.parseInt(key));
+            } catch (NumberFormatException ignored) {
             }
         }
 
-        if(allIds.isEmpty())
-            return 0;
-
-        return Collections.max(allIds);
+        return ids.isEmpty() ? 1 : Collections.max(ids) + 1;
     }
 
+    /**
+     * Checks if a player has an active or saved build task.
+     *
+     * @param playerName The player name to check
+     * @return true if the player has a task
+     */
+    public boolean hasTask(String playerName) {
+        // Check active tasks
+        for (BuildTask task : activeTasks) {
+            if (task.getOwnerName().equals(playerName)) {
+                return true;
+            }
+        }
 
-
-    public boolean hasTask(String pName) {
-        if(currentBuilds.getKeys(false) != null || !currentBuilds.getKeys(false).isEmpty()) {
-            for (String id : currentBuilds.getKeys(false)) {
-                if (currentBuilds.get(id + ".player").equals(pName)) {
+        // Check saved tasks
+        Set<String> keys = buildsConfig.getKeys(false);
+        if (keys != null) {
+            for (String id : keys) {
+                String savedPlayer = buildsConfig.getString(id + ".player");
+                if (playerName.equals(savedPlayer)) {
                     return true;
                 }
-
             }
         }
+
         return false;
     }
-    public void initTasks() throws IOException, DataException {
-        //Deserealize tempFile, reinit all tasks
-        if(currentBuilds.getKeys(false) != null || !currentBuilds.getKeys(false).isEmpty()) {
-        for (String id : currentBuilds.getKeys(false)) {
-            long systemTime = currentBuilds.getLong(id + ".startTime");
-            //1st minute, 7min - 2 minutes
-            if(((systemTime/1000) + (main.getConfig().getInt("Options.expiry-time") * 60)) - (System.currentTimeMillis()/1000) <= 0){
-                currentBuilds.set(id, null);
-                currentBuilds.save(buildFile);
-                main.getLogger().info("Removed task " + id + " as it expired");
-            }
-            ids.add(Integer.parseInt(id));
 
-         }
-        }
-
-        if(ids.isEmpty()) {
-            maxId = 0;
+    /**
+     * Initializes saved tasks on plugin startup.
+     * Removes expired tasks based on the configured expiry time.
+     *
+     * @throws IOException If there's an error saving the configuration
+     */
+    public void initTasks() throws IOException {
+        Set<String> keys = buildsConfig.getKeys(false);
+        if (keys == null || keys.isEmpty()) {
             return;
         }
 
+        int expiryMinutes = plugin.getConfig().getInt("Options.expiry-time", 1200);
+        long currentTimeSeconds = System.currentTimeMillis() / 1000;
+        boolean modified = false;
 
-        if(Collections.max(ids) == null){
-            for(int id: ids){
-                maxId = id;
-                break;
+        for (String id : new HashSet<>(keys)) {
+            long startTime = buildsConfig.getLong(id + ".startTime", 0);
+            long expiryTimeSeconds = (startTime / 1000) + (expiryMinutes * 60L);
+
+            if (currentTimeSeconds >= expiryTimeSeconds) {
+                buildsConfig.set(id, null);
+                modified = true;
+                plugin.getLogger().info("Removed expired task: " + id);
             }
-            return;
         }
 
-        maxId = Collections.max(ids);
-
+        if (modified) {
+            buildsConfig.save(buildsFile);
+        }
     }
 
-public BuildTask startTask(String pName) throws IOException, DataException{
-        for(String id: currentBuilds.getKeys(false)){
-            if(currentBuilds.get(id + ".player").equals(pName)) {
-
-                BuildTask task = new BuildTask(new BuildSchematic(currentBuilds.getString(id + ".name"), main), getChestFromLocation(( Location) currentBuilds.get(id + ".location")),
-                        currentBuilds.getString(id + ".player"), main);
-                task.setPlace(currentBuilds.getInt(id + ".place"));
-                task.setBuildTaskID(Integer.parseInt(id));
-                task.runTaskTimer(main, 0, 20 / main.getConfig().getInt("Options.blocksPerSecond"));
-                tasks.add(task);
-                return task;
-            }
+    /**
+     * Starts (resumes) a saved task for a player.
+     *
+     * @param playerName The player name
+     * @return The started BuildTask, or null if not found
+     * @throws IOException If there's an error with task creation
+     */
+    public BuildTask startTask(String playerName) throws IOException {
+        Set<String> keys = buildsConfig.getKeys(false);
+        if (keys == null) {
+            return null;
         }
+
+        for (String id : keys) {
+            String savedPlayer = buildsConfig.getString(id + ".player");
+            if (!playerName.equals(savedPlayer)) {
+                continue;
+            }
+
+            String schematicName = buildsConfig.getString(id + ".name");
+            Location location = (Location) buildsConfig.get(id + ".location");
+            int place = buildsConfig.getInt(id + ".place", 0);
+
+            if (schematicName == null || location == null) {
+                continue;
+            }
+
+            BuildSchematic schematic = new BuildSchematic(schematicName, plugin);
+            if (!schematic.isValid()) {
+                continue;
+            }
+
+            Block chestBlock = getChestFromLocation(location);
+            BuildTask task = new BuildTask(schematic, chestBlock, playerName, plugin);
+            task.setPlace(place);
+            task.setBuildTaskID(Integer.parseInt(id));
+
+            int blocksPerSecond = plugin.getConfig().getInt("Options.blocksPerSecond", 7);
+            long tickInterval = Math.max(1, 20 / blocksPerSecond);
+
+            task.runTaskTimer(plugin, 0, tickInterval);
+            activeTasks.add(task);
+
+            return task;
+        }
+
         return null;
-}
+    }
 
-    public void removeTask(BuildTask task){
-        tasks.remove(task);
-        task.cancel();
-        if(currentBuilds.getKeys(false) != null || !currentBuilds.getKeys(false).isEmpty()) {
-            if(currentBuilds.getKeys(false).contains(Integer.toString(task.getBuildTaskID()))){
-                currentBuilds.set(Integer.toString(task.getBuildTaskID()), null);
-                try {
-                    currentBuilds.save(buildFile);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
+    /**
+     * Removes a task from active tracking and persistence.
+     *
+     * @param task The task to remove
+     */
+    public void removeTask(BuildTask task) {
+        activeTasks.remove(task);
+
+        try {
+            task.cancel();
+        } catch (IllegalStateException ignored) {
+            // Task may already be cancelled
+        }
+
+        String taskId = String.valueOf(task.getBuildTaskID());
+        if (buildsConfig.contains(taskId)) {
+            buildsConfig.set(taskId, null);
+            saveBuildsConfig();
         }
     }
 
-    private Block getChestFromLocation(Location loc) {
-        loc.add(-1, 0, -1);
-        return loc.getBlock();
+    /**
+     * Gets the chest block from a saved location.
+     *
+     * @param location The saved placement location
+     * @return The chest block
+     */
+    private Block getChestFromLocation(Location location) {
+        return location.clone().add(-1, 0, -1).getBlock();
     }
 
+    /**
+     * Gets all active build tasks.
+     *
+     * @return Unmodifiable set of active tasks
+     */
     public Set<BuildTask> getAllTasks() {
-        return tasks;
+        return Collections.unmodifiableSet(activeTasks);
     }
 
-    public void saveAllTasks(){
-        for(BuildTask task: getAllTasks()){
+    /**
+     * Saves all active tasks to disk.
+     */
+    public void saveAllTasks() {
+        for (BuildTask task : activeTasks) {
             saveTask(task);
         }
     }
 
+    /**
+     * Saves a single task to disk.
+     *
+     * @param task The task to save
+     */
+    public void saveTask(BuildTask task) {
+        String taskId = String.valueOf(task.getBuildTaskID());
 
-    public void saveTask(BuildTask task){
-        currentBuilds.set(task.getBuildTaskID() + ".name", task.getSchematic().getName());
-        currentBuilds.set(task.getBuildTaskID() + ".location", task.getLocation());
-        currentBuilds.set(task.getBuildTaskID() + ".player", task.getOwnerName());
-        currentBuilds.set(task.getBuildTaskID() + ".place", task.getPlace());
-        currentBuilds.set(task.getBuildTaskID() + ".startTime", System.currentTimeMillis());
+        buildsConfig.set(taskId + ".name", task.getSchematic().getName());
+        buildsConfig.set(taskId + ".location", task.getLocation());
+        buildsConfig.set(taskId + ".player", task.getOwnerName());
+        buildsConfig.set(taskId + ".place", task.getPlace());
+        buildsConfig.set(taskId + ".startTime", System.currentTimeMillis());
 
+        saveBuildsConfig();
+    }
 
+    /**
+     * Saves the builds configuration to disk.
+     */
+    private void saveBuildsConfig() {
         try {
-            currentBuilds.save(buildFile);
+            buildsConfig.save(buildsFile);
         } catch (IOException e) {
-            Bukkit.getServer().getLogger().severe("Could not save build task!");
+            plugin.getLogger().log(Level.SEVERE, "Failed to save currentBuilds.yml", e);
         }
     }
 
+    /**
+     * Reloads the builds configuration from disk.
+     */
+    public void reload() {
+        buildsConfig = YamlConfiguration.loadConfiguration(buildsFile);
+    }
 }

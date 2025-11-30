@@ -1,12 +1,38 @@
 name: iN_Blocks
-version: 1.6
+version: '2.0.0'
 main: creeoer.plugins.in_blocks.main.iN_Blocks
+api-version: '1.21'
 author: Creeoer
+description: Place and build schematics in survival mode with material requirements
+
 depend: [WorldEdit]
 softdepend: [Vault, PreciousStones, Factions, WorldGuard, GriefPrevention, Towny, RedProtect, MassiveCore]
 
+permissions:
+  in.give:
+    description: Allows giving schematic items to players
+    default: op
+  in.create:
+    description: Allows creating new schematics
+    default: op
+  in.remove:
+    description: Allows deleting schematics
+    default: op
+  in.list:
+    description: Allows listing all schematics
+    default: op
+  in.reload:
+    description: Allows reloading the plugin configuration
+    default: op
+  in.sign.define:
+    description: Allows creating shop signs
+    default: op
+  in.sign.use:
+    description: Allows using shop signs to purchase schematics
+    default: true
 
 commands:
-   in:
-     description: iN_Block commands
-     usage: "§bUsage: /in [give/create/delete/list]"
+  in:
+    description: iN_Blocks main command
+    usage: "§bUsage: /in [give|create|delete|list|reload]"
+    aliases: [inblocks, ib]

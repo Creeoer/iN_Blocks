@@ -1,20 +1,15 @@
 package creeoer.plugins.in_blocks.listeners;
 
-import com.sk89q.worldedit.event.platform.BlockInteractEvent;
-import com.sk89q.worldedit.world.DataException;
 import creeoer.plugins.in_blocks.builders.BlockBuilder;
 import creeoer.plugins.in_blocks.main.iN_Blocks;
 import creeoer.plugins.in_blocks.objects.BuildManager;
 import creeoer.plugins.in_blocks.objects.BuildTask;
 import creeoer.plugins.in_blocks.objects.IgnoredMaterial;
 import creeoer.plugins.in_blocks.objects.Lang;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
-import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -31,136 +26,238 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.logging.Level;
 
 /**
- * Created by Frank on 4/25/2018.
+ * Handles player actions related to build tasks.
+ * Includes chest interaction protection, task resumption, and anvil prevention.
+ *
+ * @author Creeoer
+ * @version 2.0.0
  */
 public class PlayerActionsListener implements Listener {
 
+    private final iN_Blocks plugin;
+    private final BuildManager buildManager;
 
-    private iN_Blocks main;
-    private YamlConfiguration config;
-    private BuildManager buildManager;
-    private Player player;
-
-    public PlayerActionsListener(iN_Blocks mainInstance){
-        main = mainInstance;
-        config = (YamlConfiguration) main.getConfig();
-
-        buildManager = main.getBuildManager();
+    /**
+     * Creates a new PlayerActionsListener.
+     *
+     * @param plugin The main plugin instance
+     */
+    public PlayerActionsListener(iN_Blocks plugin) {
+        this.plugin = plugin;
+        this.buildManager = plugin.getBuildManager();
     }
 
-
+    /**
+     * Handles build chest breaking.
+     * Only the owner can break their build chest, which cancels the task.
+     *
+     * @param event The block break event
+     */
     @EventHandler
-    public void onChestBreak(BlockBreakEvent e) {
-        player = e.getPlayer();
-        if (e.getBlock().getState() instanceof Chest) {
-           Chest buildChest = (Chest) e.getBlock().getState();
-            for (BuildTask task : buildManager.getAllTasks()) {
-                if (buildChest.getLocation().equals(task.getBuildChest().getChestLocation())) {
+    public void onChestBreak(BlockBreakEvent event) {
+        Block block = event.getBlock();
+        Player player = event.getPlayer();
 
-                    if(!task.getOwnerName().equals(player.getName())) {
-                        player.sendMessage(ChatColor.RED + Lang.BREAK_CHEST_OWNER.toString());
-                        e.setCancelled(true);
-                        return;
+        if (!(block.getState() instanceof Chest)) {
+            return;
+        }
+
+        Chest chest = (Chest) block.getState();
+
+        // Check if this is a build chest
+        for (BuildTask task : buildManager.getAllTasks()) {
+            if (!chest.getLocation().equals(task.getBuildChest().getChestLocation())) {
+                continue;
+            }
+
+            // Check ownership
+            if (!task.getOwnerName().equals(player.getName())) {
+                player.sendMessage(ChatColor.RED + Lang.BREAK_CHEST_OWNER.toString());
+                event.setCancelled(true);
+                return;
+            }
+
+            // Owner breaking their own chest - cancel build and refund
+            player.sendMessage(ChatColor.YELLOW + Lang.BREAK_CHEST.toString());
+
+            // Refund the schematic item
+            refundSchematicItem(player, task);
+
+            // Drop placed blocks
+            dropPlacedBlocks(player, task);
+
+            // Clear the build and remove task
+            task.clearBuild();
+            buildManager.removeTask(task);
+            return;
+        }
+    }
+
+    /**
+     * Handles build chest interaction.
+     * Only the owner can interact with their build chest.
+     *
+     * @param event The player interact event
+     */
+    @EventHandler
+    public void onChestInteraction(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+
+        Block block = event.getClickedBlock();
+        if (block == null || !(block.getState() instanceof Chest)) {
+            return;
+        }
+
+        Player player = event.getPlayer();
+
+        // Check if this is a build chest
+        for (BuildTask task : buildManager.getAllTasks()) {
+            if (!block.getLocation().equals(task.getBuildChest().getChestLocation())) {
+                continue;
+            }
+
+            // Check ownership
+            if (!task.getOwnerName().equals(player.getName())) {
+                player.sendMessage(ChatColor.RED + Lang.INTERACT_CHEST.toString());
+                event.setCancelled(true);
+                return;
+            }
+
+            // Owner can interact
+            return;
+        }
+    }
+
+    /**
+     * Resumes saved build tasks when a player joins.
+     *
+     * @param event The player join event
+     */
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        String playerName = player.getName();
+
+        if (!buildManager.hasTask(playerName)) {
+            return;
+        }
+
+        try {
+            BuildTask task = buildManager.startTask(playerName);
+            if (task != null) {
+                player.sendMessage(ChatColor.YELLOW + "Your build has been resumed!");
+            }
+        } catch (IOException e) {
+            plugin.getLogger().log(Level.WARNING, "Failed to resume build for " + playerName, e);
+        }
+    }
+
+    /**
+     * Saves build tasks when a player leaves.
+     *
+     * @param event The player quit event
+     */
+    @EventHandler
+    public void onPlayerLeave(PlayerQuitEvent event) {
+        String playerName = event.getPlayer().getName();
+
+        for (BuildTask task : buildManager.getAllTasks()) {
+            if (task.getOwnerName().equals(playerName)) {
+                buildManager.saveTask(task);
+                return;
+            }
+        }
+    }
+
+    /**
+     * Prevents renaming schematic items in anvils.
+     *
+     * @param event The inventory click event
+     */
+    @EventHandler
+    public void onAnvilUse(InventoryClickEvent event) {
+        if (!(event.getClickedInventory() instanceof AnvilInventory)) {
+            return;
+        }
+
+        InventoryView view = event.getView();
+
+        // Check all slots in the anvil (input and output)
+        for (int slot = 0; slot < 3; slot++) {
+            ItemStack item = view.getItem(slot);
+            if (item == null || !item.hasItemMeta()) {
+                continue;
+            }
+
+            if (isSchematicItem(item)) {
+                event.getWhoClicked().sendMessage(ChatColor.RED + Lang.ANVIL.toString());
+                event.setCancelled(true);
+                return;
+            }
+        }
+    }
+
+    /**
+     * Checks if an item is a schematic item.
+     *
+     * @param item The item to check
+     * @return true if the item is a schematic
+     */
+    private boolean isSchematicItem(ItemStack item) {
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return false;
+        }
+
+        if (meta.hasDisplayName() && meta.getDisplayName().contains("schematic")) {
+            return true;
+        }
+
+        if (meta.hasLore()) {
+            List<String> lore = meta.getLore();
+            if (lore != null) {
+                for (String line : lore) {
+                    if (line.contains("schematic")) {
+                        return true;
                     }
-
-                    player.sendMessage(ChatColor.YELLOW + Lang.BREAK_CHEST.toString());
-                    refundBuildChest(task);
-                    dropItemsOnGround(task.getCurrentBlocksInBuild(), player.getLocation());
-                    task.clearBuild();
-                    buildManager.removeTask(task);
-                    break;
                 }
             }
         }
+
+        return false;
     }
 
-    @EventHandler
-    public void onChestInteraction(PlayerInteractEvent e){
-        if(e.getAction() == Action.RIGHT_CLICK_BLOCK){
-            Player actor = e.getPlayer();
-            Block block = e.getClickedBlock();
-            if(block.getState() instanceof Chest){
-                for(BuildTask task: buildManager.getAllTasks()){
-                    if (block.getLocation().equals(task.getBuildChest().getChestLocation())) {
-                        if (!task.getOwnerName().equals(actor.getName())) {
-                            actor.sendMessage(ChatColor.RED + Lang.INTERACT_CHEST.toString());
-                            e.setCancelled(true);
-                            return;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-
-    private void dropItemsOnGround(List<ItemStack> itemStackList, Location locationToDrop){
-        for(ItemStack stack: itemStackList){
-            if(stack != null && !IgnoredMaterial.isIgnoredMaterial(stack.getType())){
-                player.getWorld().dropItem(locationToDrop, stack);
-            }
-        }
-    }
-
-    private void refundBuildChest(BuildTask task){
-        BlockBuilder blockBuilder = new BlockBuilder(task.getSchematic().getName(), main);
-        blockBuilder.setAmount(1);
-        ItemStack buildChest = blockBuilder.build();
-
-        player.getInventory().addItem(buildChest);
+    /**
+     * Refunds the schematic item to the player.
+     *
+     * @param player The player to refund
+     * @param task The build task
+     */
+    private void refundSchematicItem(Player player, BuildTask task) {
+        BlockBuilder builder = new BlockBuilder(task.getSchematic().getName(), plugin);
+        builder.setAmount(1);
+        player.getInventory().addItem(builder.build());
         player.updateInventory();
     }
 
-    @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent e) throws IOException, DataException {
-        if (buildManager.hasTask(e.getPlayer().getName())) {
-            buildManager.startTask(e.getPlayer().getName());
-            e.getPlayer().sendMessage(ChatColor.YELLOW + "Your build was resumed!");
-        }
-    }
+    /**
+     * Drops the blocks that were placed during the build.
+     *
+     * @param player The player (for drop location)
+     * @param task The build task
+     */
+    private void dropPlacedBlocks(Player player, BuildTask task) {
+        Location dropLocation = player.getLocation();
 
-    @EventHandler
-    public void onPlayerLeave(PlayerQuitEvent e) {
-        for (BuildTask task : buildManager.getAllTasks()) {
-            if (task.getOwnerName().equals(e.getPlayer().getName())) {
-                buildManager.saveTask(task);
-                break;
+        for (ItemStack item : task.getCurrentBlocksInBuild()) {
+            if (item != null && !IgnoredMaterial.isIgnoredMaterial(item.getType())) {
+                player.getWorld().dropItem(dropLocation, item);
             }
         }
-
     }
-
-
-
-    @EventHandler
-    public void antiAnvil(InventoryClickEvent e) {
-        if (e.getClickedInventory() instanceof AnvilInventory) {
-            InventoryView view = e.getView();
-            for (int i = 0; i < 3; i++) {
-                if (view.getItem(i) != null) {
-                    ItemStack item = view.getItem(i);
-                    if (item.hasItemMeta()) {
-                        if (item.getItemMeta().hasDisplayName()) {
-                            if (item.getItemMeta().getDisplayName().contains("schematic")) {
-                                e.getWhoClicked().sendMessage(ChatColor.RED + Lang.ANVIL.toString());
-                                e.setCancelled(true);
-                            }
-                        } else if (item.getItemMeta().hasLore()) {
-                            if (item.getItemMeta().getLore().contains("schematic")) {
-                                e.getWhoClicked().sendMessage(ChatColor.RED + Lang.ANVIL.toString());
-                                e.setCancelled(true);
-                            }
-
-                        }
-                    }
-                }
-
-            }
-        }
-
-    }
-
-
 }

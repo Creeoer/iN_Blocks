@@ -2,87 +2,152 @@ package creeoer.plugins.in_blocks.builders;
 
 import creeoer.plugins.in_blocks.main.BuildSchematic;
 import creeoer.plugins.in_blocks.main.iN_Blocks;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-
+/**
+ * Builder class for creating schematic item stacks.
+ * Creates chest items that represent placeable schematics.
+ *
+ * <p>The resulting item contains:
+ * <ul>
+ *   <li>A display name or lore identifying the schematic</li>
+ *   <li>Material requirements in the lore (if survival mode)</li>
+ * </ul>
+ * </p>
+ *
+ * @author Creeoer
+ * @version 2.0.0
+ */
 public class BlockBuilder {
 
+    private final ItemStack itemStack;
+    private final ItemMeta itemMeta;
+    private final BuildSchematic schematic;
+    private final iN_Blocks plugin;
 
-    private ItemStack stack;
-    private ItemMeta meta;
-    private BuildSchematic buildSchematic;
-
-    public BlockBuilder(String blockName, iN_Blocks main) {
-
-        this.stack = new ItemStack(Material.CHEST);
-        ItemMeta meta = stack.getItemMeta();
-        buildSchematic = new BuildSchematic(blockName, main);
+    /**
+     * Creates a new BlockBuilder for the specified schematic.
+     *
+     * @param schematicName The name of the schematic
+     * @param plugin The main plugin instance
+     */
+    public BlockBuilder(String schematicName, iN_Blocks plugin) {
+        this.plugin = plugin;
+        this.itemStack = new ItemStack(Material.CHEST);
+        this.itemMeta = itemStack.getItemMeta();
+        this.schematic = new BuildSchematic(schematicName, plugin);
 
         List<String> lore = new ArrayList<>();
 
-        if (!main.getConfig().getBoolean("Options.use-lore")) {
-            meta.setDisplayName(ChatColor.YELLOW + blockName + " schematic");
+        // Set display name or lore based on config
+        boolean useLore = plugin.getConfig().getBoolean("Options.use-lore", false);
+        String schematicLabel = ChatColor.YELLOW + schematicName + " schematic";
+
+        if (useLore) {
+            lore.add(schematicLabel);
         } else {
-            lore.add(ChatColor.YELLOW + blockName + " schematic");
+            itemMeta.setDisplayName(schematicLabel);
         }
-        meta.setLore(lore);
-        this.meta = meta;
 
+        // Add material requirements if in survival mode
+        if (plugin.getConfig().getBoolean("Options.survival-mode", true)) {
+            addRequirementsToLore(lore);
+        }
 
-        if(main.getConfig().getBoolean("Options.survival-mode"))
-            setRequirements();
-
-
-
+        itemMeta.setLore(lore);
     }
 
+    /**
+     * Adds material requirements to the lore list.
+     *
+     * @param lore The lore list to modify
+     */
+    private void addRequirementsToLore(List<String> lore) {
+        List<String> requirements = schematic.getBlockRequirements();
 
-    public ItemStack build() {
-        stack.setItemMeta(this.meta);
-        return stack;
-    }
+        if (requirements.isEmpty()) {
+            return;
+        }
 
-
-    private BlockBuilder setRequirements() {
-        List<String> lore = new ArrayList<>();
-        List<String> requirements = buildSchematic.getBlockRequirements();
-
-        int num = 0;
-        String holder = requirements.get(0);
-
+        // Count occurrences of each material
+        Map<String, Integer> materialCounts = new HashMap<>();
         for (String material : requirements) {
-            if (material.equalsIgnoreCase(holder)) {
-                num++;
-            } else {
-                lore.add(lore.size(), ChatColor.GOLD + Integer.toString(num) + " " + holder.toUpperCase());
-                num = 1;
-                holder = material;
-            }
+            materialCounts.merge(material.toUpperCase(), 1, Integer::sum);
         }
 
-        if (num > 0)
-            lore.add(lore.size(), ChatColor.GOLD + Integer.toString(num) + " " + holder.toUpperCase());
-
-        if(meta == null)
-            Bukkit.getLogger().info("Meta is null!");
-
-        meta.setLore(lore);
-
-        return this;
+        // Sort materials alphabetically and add to lore
+        materialCounts.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> {
+                    String line = ChatColor.GOLD + String.valueOf(entry.getValue()) + " " + entry.getKey();
+                    lore.add(line);
+                });
     }
 
+    /**
+     * Builds and returns the schematic item.
+     *
+     * @return The configured ItemStack
+     */
+    public ItemStack build() {
+        itemStack.setItemMeta(itemMeta);
+        return itemStack;
+    }
 
+    /**
+     * Sets the stack amount.
+     *
+     * @param amount The number of items in the stack
+     * @return This builder for method chaining
+     */
     public BlockBuilder setAmount(int amount) {
-        stack.setAmount(amount);
+        itemStack.setAmount(Math.min(64, Math.max(1, amount)));
         return this;
     }
 
+    /**
+     * Sets a custom display name.
+     *
+     * @param displayName The custom name
+     * @return This builder for method chaining
+     */
+    public BlockBuilder setDisplayName(String displayName) {
+        itemMeta.setDisplayName(displayName);
+        return this;
+    }
 
+    /**
+     * Adds additional lore lines.
+     *
+     * @param lines The lines to add
+     * @return This builder for method chaining
+     */
+    public BlockBuilder addLore(String... lines) {
+        List<String> lore = itemMeta.getLore();
+        if (lore == null) {
+            lore = new ArrayList<>();
+        }
+        for (String line : lines) {
+            lore.add(line);
+        }
+        itemMeta.setLore(lore);
+        return this;
+    }
+
+    /**
+     * Gets the schematic associated with this builder.
+     *
+     * @return The BuildSchematic
+     */
+    public BuildSchematic getSchematic() {
+        return schematic;
+    }
 }

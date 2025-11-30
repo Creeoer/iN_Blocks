@@ -5,18 +5,27 @@ import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
 /**
- * Created by CREEOER on 11/26/2016.
+ * PreciousStones protection checker adapter.
+ * Uses the PreciousStones API to check build permissions.
+ *
+ * @author Creeoer
+ * @version 2.0.0
  */
-public class PreciousStonesChecker implements iChecker{
+public class PreciousStonesChecker implements iChecker {
 
-
-
-    public PreciousStonesChecker(){
-
+    /**
+     * Creates a new PreciousStonesChecker.
+     */
+    public PreciousStonesChecker() {
     }
 
     @Override
-    public boolean isValidPlacement(Location loc,Player p){
-        return PreciousStones.API().canPlace(p, loc);
+    public boolean isValidPlacement(Location location, Player player) {
+        try {
+            return PreciousStones.API().canPlace(player, location);
+        } catch (Exception e) {
+            // If check fails, deny by default
+            return false;
+        }
     }
 }

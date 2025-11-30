@@ -1,6 +1,122 @@
-apply plugin: 'java'
+plugins {
+    id 'java'
+    id 'idea'
+}
 
-apply plugin: 'idea'
+group = 'creeoer.plugins'
+version = '2.0.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
 
 repositories {
+    mavenCentral()
+
+    // Spigot API repository
+    maven {
+        name = 'spigot-repo'
+        url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/'
+    }
+
+    // WorldEdit/WorldGuard repository
+    maven {
+        name = 'enginehub-repo'
+        url = 'https://maven.enginehub.org/repo/'
+    }
+
+    // Vault repository
+    maven {
+        name = 'jitpack'
+        url = 'https://jitpack.io'
+    }
+
+    // Towny repository
+    maven {
+        name = 'glaremasters-repo'
+        url = 'https://repo.glaremasters.me/repository/towny/'
+    }
+
+    // GriefPrevention repository
+    maven {
+        name = 'codemc-repo'
+        url = 'https://repo.codemc.org/repository/maven-public/'
+    }
+
+    // RedProtect repository
+    maven {
+        name = 'sonatype-snapshots'
+        url = 'https://oss.sonatype.org/content/repositories/snapshots/'
+    }
+}
+
+dependencies {
+    // Core Spigot API - required
+    compileOnly 'org.spigotmc:spigot-api:1.21.5-R0.1-SNAPSHOT'
+
+    // WorldEdit API - required dependency
+    compileOnly 'com.sk89q.worldedit:worldedit-bukkit:7.3.10'
+    compileOnly 'com.sk89q.worldedit:worldedit-core:7.3.10'
+
+    // WorldGuard API - soft dependency
+    compileOnly 'com.sk89q.worldguard:worldguard-bukkit:7.0.13'
+
+    // Vault API - soft dependency for economy
+    compileOnly 'com.github.MilkBowl:VaultAPI:1.7.1'
+
+    // Towny API - soft dependency
+    compileOnly 'com.palmergames.bukkit.towny:towny:0.100.4.5'
+
+    // GriefPrevention API - soft dependency
+    compileOnly 'com.github.TechFortress:GriefPrevention:17.0.0'
+}
+
+// Configure source sets to match project structure
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src']
+        }
+        resources {
+            srcDirs = ['src']
+            include '**/*.yml'
+        }
+    }
+}
+
+// Ensure plugin.yml and config.yml are included in the JAR
+processResources {
+    from('src') {
+        include 'plugin.yml'
+        include 'config.yml'
+        include 'lang.yml'
+    }
+}
+
+// Build JAR with proper manifest
+jar {
+    archiveBaseName.set('iN_Blocks')
+
+    manifest {
+        attributes(
+            'Implementation-Title': 'iN_Blocks',
+            'Implementation-Version': project.version
+        )
+    }
+
+    // Exclude source directories from JAR
+    exclude '**/*.java'
+}
+
+// Task to copy JAR to plugins folder for testing
+tasks.register('copyToPlugins', Copy) {
+    from jar
+    into 'run/plugins'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-Xlint:deprecation'
 }

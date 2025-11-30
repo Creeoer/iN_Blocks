@@ -1,11 +1,11 @@
 package creeoer.plugins.in_blocks.listeners;
 
-import com.sk89q.worldedit.BlockVector;
-import com.sk89q.worldedit.CuboidClipboard;
-import com.sk89q.worldedit.MaxChangedBlocksException;
-import com.sk89q.worldedit.world.DataException;
 import creeoer.plugins.in_blocks.events.iNPlaceEvent;
-import creeoer.plugins.in_blocks.main.*;
+import creeoer.plugins.in_blocks.main.BuildSchematic;
+import creeoer.plugins.in_blocks.main.PUtils;
+import creeoer.plugins.in_blocks.main.RegionManager;
+import creeoer.plugins.in_blocks.main.SchematicManager;
+import creeoer.plugins.in_blocks.main.iN_Blocks;
 import creeoer.plugins.in_blocks.objects.BuildManager;
 import creeoer.plugins.in_blocks.objects.Lang;
 import org.bukkit.Bukkit;
@@ -14,250 +14,322 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.block.Chest;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.conversations.*;
+import org.bukkit.conversations.Conversation;
+import org.bukkit.conversations.ConversationAbandonedEvent;
+import org.bukkit.conversations.ConversationAbandonedListener;
+import org.bukkit.conversations.ConversationContext;
+import org.bukkit.conversations.ConversationFactory;
+import org.bukkit.conversations.Prompt;
+import org.bukkit.conversations.ValidatingPrompt;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-
 import java.util.List;
 
+/**
+ * Handles block placement events for schematic items.
+ * When a player places a schematic chest, this listener shows a preview
+ * and initiates a conversation for confirmation.
+ *
+ * @author Creeoer
+ * @version 2.0.0
+ */
 public class BlockListener implements Listener {
 
+    private final iN_Blocks plugin;
+    private final SchematicManager schematicManager;
+    private final RegionManager regionManager;
+    private final BuildManager buildManager;
+    private final FileConfiguration config;
 
-    private SchematicManager manager;
-    private BuildSchematic buildSchematic;
-    private iN_Blocks main;
-    private ItemStack stack;
-    private boolean isDone;
-    private Block block;
-    private String name;
-    private Location playerLocation;
-    private FileConfiguration config;
-    private List<ItemStack> requirements;
-    private RegionManager rgManager;
-    private BuildManager buildManager;
-    private Block chestBlock;
-
-    public BlockListener(iN_Blocks instance) {
-        main = instance;
-        manager = main.getSchematicManager();
-        config = YamlConfiguration.loadConfiguration(new File(main.getDataFolder() + File.separator + "config.yml"));
-        rgManager = main.getrManager();
-        buildManager = instance.getBuildManager();
+    /**
+     * Creates a new BlockListener.
+     *
+     * @param plugin The main plugin instance
+     */
+    public BlockListener(iN_Blocks plugin) {
+        this.plugin = plugin;
+        this.schematicManager = plugin.getSchematicManager();
+        this.regionManager = plugin.getRegionManager();
+        this.buildManager = plugin.getBuildManager();
+        this.config = plugin.getConfig();
     }
 
-
+    /**
+     * Handles block placement events for schematic items.
+     *
+     * @param event The block place event
+     */
     @EventHandler
-    public void onBlockPlace(BlockPlaceEvent e) throws DataException, IOException, MaxChangedBlocksException, IllegalAccessException, NoSuchFieldException {
-        ItemStack stack = e.getItemInHand();
+    public void onBlockPlace(BlockPlaceEvent event) {
+        ItemStack item = event.getItemInHand();
+        Player player = event.getPlayer();
 
-        if (isPlacedBlockBuildChest(stack)) {
-            ItemMeta meta = stack.getItemMeta();
-            final Player p = e.getPlayer();
-
-
-            BlockFace facing = PUtils.getCardinalDirection(p.getLocation().getYaw(), false);
-            e.setCancelled(true);
-
-
-            String[] split;
-            if (!main.getConfig().getBoolean("Options.use-lore")) {
-                split = meta.getDisplayName().split("\\s+");
-            } else {
-                if (meta.getLore() == null) {
-                    Bukkit.getLogger().severe("Lore isn't found in scematic block");
-                    return;
-                }
-                split = meta.getLore().get(0).split("\\s+");
-            }
-
-
-            name = ChatColor.stripColor(split[0]);
-            buildSchematic = manager.getSchematic(name);
-
-            if (buildSchematic == null) {
-                p.sendMessage(ChatColor.RED + Lang.EXISTS.toString());
-                return;
-            }
-
-            this.stack = stack;
-            this.block = e.getBlockPlaced();
-
-            if (manager.hasPermission(ChatColor.stripColor(split[0])) && !p.hasPermission("in." + ChatColor.stripColor(split[0]))) {
-                p.sendMessage(ChatColor.RED + Lang.NO_PERM.toString());
-                return;
-            }
-
-
-            if (p.isConversing()) {
-                p.sendRawMessage(ChatColor.RED + Lang.PREVIEW_ERROR.toString());
-                return;
-            }
-
-            if (buildManager.hasTask(e.getPlayer().getName())) {
-                p.sendRawMessage(ChatColor.RED + "You already have a build in progress!");
-                return;
-            }
-
-
-            Location placementLocation = e.getBlock().getLocation();
-            chestBlock = placementLocation.getBlock();
-            buildSchematic.rotateAndSetBoardOrigin(placementLocation, facing);
-
-
-            try {
-                if (!rgManager.canPlayerPlace(p, buildSchematic, placementLocation)) {
-                    p.sendMessage(ChatColor.RED + Lang.BAD_PLACE.toString());
-                    return;
-                }
-            } catch (Exception ignored) {
-                ignored.printStackTrace();
-                return;
-            }
-
-
-           e.setCancelled(true);
-
-            List<ItemStack> requirements = new ArrayList<>();
-
-            if (config.getBoolean("Options.survival-mode")) {
-
-                if (meta.getLore().isEmpty() || meta.getLore() == null) {
-                    p.sendMessage(ChatColor.RED + "This schematic has no block requirements!");
-                } else {
-                    //Check player inventory for requirements
-                    for (String item : meta.getLore()) {
-                        if (!ChatColor.stripColor(item).contains("schematic")) {
-                            String[] parts = (ChatColor.stripColor(item).split("\\s+"));
-                            int i = Integer.parseInt(parts[0]);
-                            requirements.add(new ItemStack(Material.getMaterial(parts[1].toUpperCase()), i));
-                        }
-                    }
-                    this.requirements = requirements;
-                }
-
-                    try {
-                        if (!rgManager.canPlayerPlace(p, buildSchematic, placementLocation)) {
-                            p.sendMessage(ChatColor.RED + Lang.BAD_PLACE.toString());
-                            return;
-                        }
-                    } catch (Exception ignored) {
-                        ignored.printStackTrace();
-                        return;
-                    }
-                    p.updateInventory();
-
-
-                    buildSchematic.preview(p, placementLocation);
-
-                    playerLocation = placementLocation;
-                    initConvo(p).begin();
-                    e.setCancelled(true);
-
-                }
-        }
-    }
-
-
-    public boolean isPlacedBlockBuildChest(ItemStack placedBlock) {
-
-        if (doesItemHaveDisplayNameOrLore(placedBlock)) {
-            ItemMeta meta = placedBlock.getItemMeta();
-            if (meta.hasLore() && meta.getLore().get(0).contains("schematic") || meta.hasDisplayName() && meta.getDisplayName().charAt(0) == ChatColor.COLOR_CHAR && meta.getDisplayName().contains("schematic")) {
-                return true;
-            }
+        // Check if the placed item is a schematic chest
+        if (!isSchematicItem(item)) {
+            return;
         }
 
-        return false;
+        // Always cancel the event - we handle placement ourselves
+        event.setCancelled(true);
+
+        // Extract schematic name from item
+        String schematicName = extractSchematicName(item);
+        if (schematicName == null) {
+            return;
+        }
+
+        // Get the schematic
+        BuildSchematic schematic = schematicManager.getSchematic(schematicName);
+        if (schematic == null || !schematic.isValid()) {
+            player.sendMessage(ChatColor.RED + Lang.EXISTS.toString());
+            return;
+        }
+
+        // Check permission for protected schematics
+        if (schematicManager.hasPermission(schematicName) &&
+                !player.hasPermission("in." + schematicName)) {
+            player.sendMessage(ChatColor.RED + Lang.NO_PERM.toString());
+            return;
+        }
+
+        // Check if player is already in preview mode
+        if (player.isConversing()) {
+            player.sendRawMessage(ChatColor.RED + Lang.PREVIEW_ERROR.toString());
+            return;
+        }
+
+        // Check if player already has a build in progress
+        if (buildManager.hasTask(player.getName())) {
+            player.sendRawMessage(ChatColor.RED + "You already have a build in progress!");
+            return;
+        }
+
+        // Get placement location and facing direction
+        Location placementLocation = event.getBlock().getLocation();
+        Block chestBlock = placementLocation.getBlock();
+        BlockFace facing = PUtils.getCardinalDirection(player.getLocation().getYaw(), false);
+
+        // Rotate schematic to match player facing
+        schematic.rotateAndSetBoardOrigin(placementLocation, facing);
+
+        // Check region protection
+        if (!regionManager.canPlayerPlace(player, schematic, placementLocation)) {
+            player.sendMessage(ChatColor.RED + Lang.BAD_PLACE.toString());
+            return;
+        }
+
+        // Show preview
+        schematic.preview(player, placementLocation);
+
+        // Start confirmation conversation
+        Conversation conversation = createConfirmationConversation(
+                player, schematic, placementLocation, chestBlock, item
+        );
+        conversation.begin();
     }
 
-
-    public boolean doesItemHaveDisplayNameOrLore(ItemStack block) {
-        if (!block.hasItemMeta())
+    /**
+     * Checks if an ItemStack is a schematic item.
+     *
+     * @param item The item to check
+     * @return true if the item is a schematic
+     */
+    private boolean isSchematicItem(ItemStack item) {
+        if (item == null || item.getType() != Material.CHEST) {
             return false;
+        }
 
-        ItemMeta meta = block.getItemMeta();
+        if (!item.hasItemMeta()) {
+            return false;
+        }
 
-        if (meta.hasDisplayName() || meta.hasLore())
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return false;
+        }
+
+        // Check display name for schematic marker
+        if (meta.hasDisplayName() && meta.getDisplayName().contains("schematic")) {
             return true;
+        }
+
+        // Check lore for schematic marker
+        if (meta.hasLore()) {
+            List<String> lore = meta.getLore();
+            if (lore != null && !lore.isEmpty() && lore.get(0).contains("schematic")) {
+                return true;
+            }
+        }
 
         return false;
     }
 
+    /**
+     * Extracts the schematic name from an item's metadata.
+     *
+     * @param item The schematic item
+     * @return The schematic name, or null if not found
+     */
+    private String extractSchematicName(ItemStack item) {
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return null;
+        }
 
-    public Conversation initConvo(final Player p) {
-        isDone = false;
-        ConversationFactory fac = new ConversationFactory(main).withFirstPrompt(new ValidatingPrompt() {
-            @Override
-            public String getPromptText(ConversationContext conversationContext) {
-                return ChatColor.GREEN + Lang.PREVIEW.toString().replace("%n", Integer.toString(config.getInt("Options.preview-time")));
+        String text;
+        boolean useLore = config.getBoolean("Options.use-lore", false);
+
+        if (useLore) {
+            List<String> lore = meta.getLore();
+            if (lore == null || lore.isEmpty()) {
+                return null;
             }
-
-            @Override
-            protected boolean isInputValid(ConversationContext conversationContext, String s) {
-                return true;
+            text = lore.get(0);
+        } else {
+            if (!meta.hasDisplayName()) {
+                return null;
             }
+            text = meta.getDisplayName();
+        }
 
-            @Override
-            protected Prompt acceptValidatedInput(ConversationContext conversationContext, String s) {
-                if (!s.equals("yes") && !s.equals("rotate")) {
-                    buildSchematic.unloadPreview(p, playerLocation);
-                    isDone = true;
-                    p.sendRawMessage(ChatColor.RED + Lang.CANCEL.toString());
-                    return Prompt.END_OF_CONVERSATION;
-                }
+        // Extract name from "SchematicName schematic" format
+        String[] parts = ChatColor.stripColor(text).split("\\s+");
+        if (parts.length > 0) {
+            return parts[0];
+        }
 
-                isDone = true;
-                iNPlaceEvent e = new iNPlaceEvent(name, p, playerLocation, block, buildSchematic);
-                Bukkit.getServer().getPluginManager().callEvent(e);
-                buildSchematic.unloadPreview(p, playerLocation);
-
-                if (e.isCancelled()) {
-                    p.sendRawMessage(ChatColor.RED + Lang.CANCEL.toString());
-                    return Prompt.END_OF_CONVERSATION;
-                }
-
-                buildManager.createNewTask(buildSchematic, chestBlock, p.getName());
-
-
-                p.sendRawMessage(ChatColor.YELLOW + Lang.SUCCESS_PLACE.toString());
-                if (stack.getAmount() > 1) {
-                    ItemMeta meta = stack.getItemMeta();
-                    meta.setDisplayName(ChatColor.YELLOW + buildSchematic.getName() + " schematic");
-                    stack.setItemMeta(meta);
-                    stack.setAmount(stack.getAmount() - 1);
-                    p.setItemInHand(stack);
-                    p.updateInventory();
-                } else {
-                    p.getInventory().removeItem(stack);
-                }
-
-
-
-                return Prompt.END_OF_CONVERSATION;
-
-            }
-        }).withTimeout(config.getInt("Options.preview-time")).withModality(true).addConversationAbandonedListener(new ConversationAbandonedListener() {
-            @Override
-            public void conversationAbandoned(ConversationAbandonedEvent conversationAbandonedEvent) {
-                if (!isDone) {
-                    buildSchematic.unloadPreview(p, playerLocation);
-                    p.sendRawMessage(ChatColor.RED + "Preview time out!");
-                }
-            }
-
-        });
-        return fac.buildConversation(p);
+        return null;
     }
 
+    /**
+     * Creates the confirmation conversation for schematic placement.
+     *
+     * @param player The player
+     * @param schematic The schematic to place
+     * @param location The placement location
+     * @param chestBlock The chest block
+     * @param item The schematic item
+     * @return The configured Conversation
+     */
+    private Conversation createConfirmationConversation(
+            Player player,
+            BuildSchematic schematic,
+            Location location,
+            Block chestBlock,
+            ItemStack item) {
+
+        int previewTimeout = config.getInt("Options.preview-time", 10);
+        final boolean[] conversationComplete = {false};
+
+        ConversationFactory factory = new ConversationFactory(plugin)
+                .withFirstPrompt(new ValidatingPrompt() {
+                    @Override
+                    public String getPromptText(ConversationContext context) {
+                        return ChatColor.GREEN + Lang.PREVIEW.toString()
+                                .replace("%n", String.valueOf(previewTimeout));
+                    }
+
+                    @Override
+                    protected boolean isInputValid(ConversationContext context, String input) {
+                        return true; // Accept any input
+                    }
+
+                    @Override
+                    protected Prompt acceptValidatedInput(ConversationContext context, String input) {
+                        if (!input.equalsIgnoreCase("yes")) {
+                            // Cancel placement
+                            schematic.unloadPreview(player, location);
+                            player.sendRawMessage(ChatColor.RED + Lang.CANCEL.toString());
+                            conversationComplete[0] = true;
+                            return Prompt.END_OF_CONVERSATION;
+                        }
+
+                        // Fire custom event for other plugins
+                        iNPlaceEvent placeEvent = new iNPlaceEvent(
+                                schematic.getName(), player, location, chestBlock, schematic
+                        );
+                        Bukkit.getServer().getPluginManager().callEvent(placeEvent);
+
+                        // Unload preview
+                        schematic.unloadPreview(player, location);
+
+                        // Check if event was cancelled
+                        if (placeEvent.isCancelled()) {
+                            player.sendRawMessage(ChatColor.RED + Lang.CANCEL.toString());
+                            conversationComplete[0] = true;
+                            return Prompt.END_OF_CONVERSATION;
+                        }
+
+                        // Create the build task
+                        buildManager.createNewTask(schematic, chestBlock, player.getName());
+
+                        // Success message
+                        player.sendRawMessage(ChatColor.YELLOW + Lang.SUCCESS_PLACE.toString());
+
+                        // Consume item
+                        consumeItem(player, item);
+
+                        conversationComplete[0] = true;
+                        return Prompt.END_OF_CONVERSATION;
+                    }
+                })
+                .withTimeout(previewTimeout)
+                .withModality(true)
+                .addConversationAbandonedListener(new ConversationAbandonedListener() {
+                    @Override
+                    public void conversationAbandoned(ConversationAbandonedEvent event) {
+                        if (!conversationComplete[0]) {
+                            schematic.unloadPreview(player, location);
+                            player.sendRawMessage(ChatColor.RED + "Preview timed out!");
+                        }
+                    }
+                });
+
+        return factory.buildConversation(player);
+    }
+
+    /**
+     * Consumes one schematic item from the player's inventory.
+     *
+     * @param player The player
+     * @param item The item to consume
+     */
+    private void consumeItem(Player player, ItemStack item) {
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        ItemStack offHand = player.getInventory().getItemInOffHand();
+
+        // Check which hand has the item
+        ItemStack targetItem = null;
+        boolean isMainHand = false;
+
+        if (mainHand != null && mainHand.isSimilar(item)) {
+            targetItem = mainHand;
+            isMainHand = true;
+        } else if (offHand != null && offHand.isSimilar(item)) {
+            targetItem = offHand;
+        }
+
+        if (targetItem == null) {
+            return;
+        }
+
+        if (targetItem.getAmount() > 1) {
+            targetItem.setAmount(targetItem.getAmount() - 1);
+        } else {
+            if (isMainHand) {
+                player.getInventory().setItemInMainHand(null);
+            } else {
+                player.getInventory().setItemInOffHand(null);
+            }
+        }
+
+        player.updateInventory();
+    }
 }

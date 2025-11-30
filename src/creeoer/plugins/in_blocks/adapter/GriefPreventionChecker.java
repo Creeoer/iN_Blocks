@@ -5,18 +5,44 @@ import me.ryanhamshire.GriefPrevention.GriefPrevention;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
+/**
+ * GriefPrevention protection checker adapter.
+ * Checks if a player owns or has permission to build in a claim.
+ *
+ * @author Creeoer
+ * @version 2.0.0
+ */
+public class GriefPreventionChecker implements iChecker {
 
-public class GriefPreventionChecker implements iChecker{
-    public GriefPreventionChecker(){
-
+    /**
+     * Creates a new GriefPreventionChecker.
+     */
+    public GriefPreventionChecker() {
     }
+
     @Override
-    public boolean isValidPlacement(Location loc ,Player player){
-        Claim claim = GriefPrevention.instance.dataStore.getClaimAt(loc, false, null);
+    public boolean isValidPlacement(Location location, Player player) {
+        try {
+            // Get the claim at this location
+            Claim claim = GriefPrevention.instance.dataStore.getClaimAt(location, false, null);
 
-                    if (claim == null)
-                       return true;
+            // No claim = can build
+            if (claim == null) {
+                return true;
+            }
 
-                    return claim.getOwnerName().equals(player.getName());
+            // Check if player is the owner
+            if (claim.getOwnerName() != null && claim.getOwnerName().equals(player.getName())) {
+                return true;
+            }
+
+            // Check if player has build permission in the claim
+            String denyReason = claim.allowBuild(player, null);
+            return denyReason == null;
+
+        } catch (Exception e) {
+            // If check fails, deny by default for safety
+            return false;
+        }
     }
 }
